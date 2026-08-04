@@ -34,7 +34,8 @@ public class OtpServiceImpl implements OtpService {
         otpRepository.save(otp);
 
         // Send real SMS code via Twilio
-        twilioSmsService.sendSms(phoneNumber, "Your Digital Wallet code is: " + code);
+        //twilioSmsService.sendSms(phoneNumber, "Your Digital Wallet code is: " + code);
+        System.out.println("Your Digital Wallet code is: " + code);
     }
 
     @Override
