@@ -17,10 +17,11 @@ public class Wallet extends BaseEntity {
     @JoinColumn(name = "user_id")
     private User user;
 
+    @Column(unique = true, nullable =false)
+    private String walletNumber;
 
     @Column(nullable = false)
     private BigDecimal balance = BigDecimal.ZERO;
-
 
     @Enumerated(EnumType.STRING)
     private WalletStatus status;

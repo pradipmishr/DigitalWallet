@@ -5,6 +5,9 @@ import com.project.digitalwallet.entity.Wallet;
 
 public class WalletMapper {
     public static WalletDto toWalletDto(Wallet wallet){
+        if (wallet == null) {
+            return null; // Return null safely if user doesn't have a wallet yet
+        }
         WalletDto walletDto = new WalletDto();
         walletDto.setId(wallet.getId());
         walletDto.setBalance(wallet.getBalance());
@@ -13,6 +16,9 @@ public class WalletMapper {
     }
 
     public static Wallet toWalletEntity(WalletDto walletDto){
+        if (walletDto == null) {
+            return null;
+        }
         Wallet wallet = new Wallet();
         wallet.setId(walletDto.getId());
         wallet.setBalance(walletDto.getBalance());

@@ -1,7 +1,5 @@
 package com.project.digitalwallet.entity;
 
-
-
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -24,4 +22,9 @@ public class User extends BaseEntity {
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
     private Wallet wallet;
+
+    public void assignWallet(Wallet wallet) {
+        this.wallet = wallet;
+        wallet.setUser(this);
+    }
 }

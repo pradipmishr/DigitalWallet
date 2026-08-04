@@ -1,7 +1,5 @@
 package com.project.digitalwallet.entity;
 
-
-
 import com.project.digitalwallet.common.enums.TransactionStatus;
 import com.project.digitalwallet.common.enums.TransactionType;
 import jakarta.persistence.*;
