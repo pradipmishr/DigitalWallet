@@ -24,5 +24,7 @@ public class RegisterRequest {
             message = "Invalid phone number"
     )
     private String phoneNumber;
-    
+    @NotBlank(message = "Password is required")
+    private String password;
+
 }

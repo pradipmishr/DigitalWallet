@@ -12,6 +12,7 @@ import com.project.digitalwallet.service.UserService;
 import com.project.digitalwallet.service.WalletService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -23,12 +24,15 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final WalletService walletService;
     private final OtpService otpService;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     public void initiateRegistration(RegisterRequest request) {
+
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("Email is already registered.");
         }
+
         if (userRepository.existsByPhoneNumber(request.getPhoneNumber())) {
             throw new IllegalArgumentException("Phone number is already registered.");
         }
@@ -39,28 +43,41 @@ public class UserServiceImpl implements UserService {
     @Transactional
     @Override
     public UserDto completeRegistration(RegisterVerifyRequest verifyRequest) {
+
         RegisterRequest request = verifyRequest.getRegisterRequest();
 
         // 1. Verify OTP
-        boolean isVerified = otpService.verifyOtp(request.getPhoneNumber(), verifyRequest.getOtp());
+        boolean isVerified = otpService.verifyOtp(
+                request.getPhoneNumber(),
+                verifyRequest.getOtp()
+        );
+
         if (!isVerified) {
             throw new IllegalArgumentException("Invalid or expired OTP.");
         }
 
-        // 2. Build and Save User
+        // 2. Build User
         User user = new User();
+
         user.setFirstName(request.getFirstName());
         user.setLastName(request.getLastName());
         user.setEmail(request.getEmail());
         user.setPhoneNumber(request.getPhoneNumber());
 
+        // Encrypt password before saving
+        user.setPassword(
+                passwordEncoder.encode(request.getPassword())
+        );
+
+        // 3. Save User
         User savedUser = userRepository.save(user);
 
-        // 3. Create Wallet for saved user
-        UserDto savedUserDto = UserMapper.toUserDto(savedUser); // Safe now with null check in WalletMapper!
-        WalletDto createdWalletDto = walletService.createWallet(savedUserDto);
+        // 4. Create Wallet
+        UserDto savedUserDto = UserMapper.toUserDto(savedUser);
 
-        // 4. Attach created wallet to UserDto for response
+        WalletDto createdWalletDto =
+                walletService.createWallet(savedUserDto);
+
         savedUserDto.setWallet(createdWalletDto);
 
         return savedUserDto;
