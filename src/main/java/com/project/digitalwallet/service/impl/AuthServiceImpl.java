@@ -3,6 +3,7 @@ package com.project.digitalwallet.service.impl;
 import com.project.digitalwallet.dto.LoginRequest;
 import com.project.digitalwallet.dto.LoginResponse;
 import com.project.digitalwallet.entity.User;
+import com.project.digitalwallet.mapper.UserMapper;
 import com.project.digitalwallet.security.JwtUtil;
 import com.project.digitalwallet.security.UserPrincipal;
 import com.project.digitalwallet.service.AuthService;
@@ -37,14 +38,6 @@ public class AuthServiceImpl implements AuthService {
 
         String token = jwtUtil.generateToken(principal);
 
-        return LoginResponse.builder()
-                .token(token)
-                .tokenType("Bearer")
-                .userId(user.getId())
-                .firstName(user.getFirstName())
-                .lastName(user.getLastName())
-                .phoneNumber(user.getPhoneNumber())
-                .role(user.getRole())
-                .build();
+        return UserMapper.toLoginResponse(user, token);
     }
 }

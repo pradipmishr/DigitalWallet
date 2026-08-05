@@ -1,5 +1,6 @@
 package com.project.digitalwallet.mapper;
 
+import com.project.digitalwallet.dto.LoginResponse;
 import com.project.digitalwallet.dto.UserDto;
 import com.project.digitalwallet.entity.User;
 
@@ -36,5 +37,17 @@ public class UserMapper {
         return userDto.stream()
                 .map(UserMapper::toUserEntity)
                 .toList();
+    }
+    public static LoginResponse toLoginResponse(User user, String token) {
+
+        return LoginResponse.builder()
+                .token(token)
+                .tokenType("Bearer")
+                .userId(user.getId())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .phoneNumber(user.getPhoneNumber())
+                .role(user.getRole())
+                .build();
     }
 }
