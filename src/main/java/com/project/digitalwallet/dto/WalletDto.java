@@ -18,6 +18,10 @@ import java.math.BigDecimal;
 
         private WalletStatus status;
         private String walletNumber;
-        private User user;
+        //private User user;
+
+        private Long userId;
+        private String userName;
+        private String userPhoneNumber;
 
     }
