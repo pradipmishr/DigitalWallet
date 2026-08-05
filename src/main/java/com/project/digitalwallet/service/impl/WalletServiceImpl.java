@@ -14,6 +14,7 @@ import com.project.digitalwallet.service.WalletService;
 import com.project.digitalwallet.common.util.WalletNumberGenerator;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 
@@ -25,6 +26,7 @@ public class WalletServiceImpl implements WalletService {
     private final UserRepository userRepository;
     private final WalletNumberGenerator walletNumberGenerator;
     private final TransactionRepository transactionRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     public WalletDto createWallet(UserDto userDto) {
@@ -66,6 +68,19 @@ public class WalletServiceImpl implements WalletService {
     @Transactional
     @Override
     public TransactionDto transfer(Long senderUserId, TransferRequest request) {
+        // 1. Fetch Sender User and Validate PIN
+        User senderUser = userRepository.findById(senderUserId)
+                .orElseThrow(() -> new IllegalArgumentException("Sender user not found."));
+
+        if (senderUser.getTransactionPin() == null) {
+            throw new IllegalStateException("Transaction PIN is not set. Please set a transaction PIN first.");
+        }
+
+        if (!passwordEncoder.matches(request.getPin(), senderUser.getTransactionPin())) {
+            throw new IllegalArgumentException("Invalid Transaction PIN.");
+        }
+
+        // 2. Fetch Sender Wallet
         Wallet senderWallet = walletRepository.findByUserId(senderUserId)
                 .orElseThrow(() -> new IllegalArgumentException("Sender wallet not found."));
 
@@ -73,6 +88,7 @@ public class WalletServiceImpl implements WalletService {
             throw new IllegalStateException("Sender wallet is inactive.");
         }
 
+        // 3. Fetch Recipient User & Wallet
         User recipientUser = userRepository.findByPhoneNumber(request.getRecipientPhoneNumber())
                 .orElseThrow(() -> new IllegalArgumentException("Recipient not found with phone number: " + request.getRecipientPhoneNumber()));
 
@@ -87,10 +103,12 @@ public class WalletServiceImpl implements WalletService {
             throw new IllegalStateException("Recipient wallet is inactive.");
         }
 
+        // 4. Check Available Balance
         if (senderWallet.getBalance().compareTo(request.getAmount()) < 0) {
             throw new IllegalArgumentException("Insufficient wallet balance.");
         }
 
+        // 5. Atomic Balance Updates
         BigDecimal newSenderBalance = senderWallet.getBalance().subtract(request.getAmount());
         BigDecimal newReceiverBalance = receiverWallet.getBalance().add(request.getAmount());
 
@@ -100,7 +118,7 @@ public class WalletServiceImpl implements WalletService {
         walletRepository.save(senderWallet);
         walletRepository.save(receiverWallet);
 
-        // Clean entity creation via Mapper
+        // 6. Record Transaction & Map Response
         Transaction transaction = TransactionMapper.createTransferEntity(senderWallet, receiverWallet, request.getAmount(), request.getDescription());
         Transaction savedTransaction = transactionRepository.save(transaction);
 
