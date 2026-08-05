@@ -21,7 +21,7 @@ public class User extends BaseEntity {
 
     private String phoneNumber;
 
-//    @Column(nullable = false)
+   @Column(nullable = false)
     private String password;
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
@@ -33,4 +33,6 @@ public class User extends BaseEntity {
         this.wallet = wallet;
         wallet.setUser(this);
     }
+    @Column(nullable = true)
+    private String transactionPin;
 }

@@ -13,4 +13,5 @@ public interface UserService {
     UserDto completeRegistration(RegisterVerifyRequest request);
 
     List<UserDto> getAllUsers();
+    void setTransactionPin(String phoneNumber, String pin);
 }

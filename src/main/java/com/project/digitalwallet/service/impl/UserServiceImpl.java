@@ -87,4 +87,20 @@ public class UserServiceImpl implements UserService {
     public List<UserDto> getAllUsers() {
         return UserMapper.toUserDto(userRepository.findAll());
     }
+
+    @Override
+    @Transactional
+    public void setTransactionPin(String phoneNumber, String pin) {
+        User user = userRepository.findByPhoneNumber(phoneNumber)
+                .orElseThrow(() ->
+                        new RuntimeException("User not found")
+                );
+
+
+        user.setTransactionPin(
+                passwordEncoder.encode(pin)
+        );
+
+        userRepository.save(user);
+    }
 }
