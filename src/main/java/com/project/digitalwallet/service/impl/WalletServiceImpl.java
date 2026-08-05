@@ -10,8 +10,10 @@ import com.project.digitalwallet.mapper.WalletMapper;
 import com.project.digitalwallet.repository.TransactionRepository;
 import com.project.digitalwallet.repository.UserRepository;
 import com.project.digitalwallet.repository.WalletRepository;
+import com.project.digitalwallet.service.AuditLogService;
 import com.project.digitalwallet.service.WalletService;
 import com.project.digitalwallet.common.util.WalletNumberGenerator;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +32,8 @@ public class WalletServiceImpl implements WalletService {
     private final WalletNumberGenerator walletNumberGenerator;
     private final TransactionRepository transactionRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuditLogService auditLogService;
+    private final HttpServletRequest httpServletRequest;
 
     @Override
     public WalletDto createWallet(UserDto userDto) {
@@ -53,9 +57,13 @@ public class WalletServiceImpl implements WalletService {
 
         return WalletMapper.toWalletDto(wallet);
     }
+
     @Transactional
     @Override
     public TransactionDto deposit(Long userId, DepositRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
+
         Wallet wallet = walletRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("No wallet found for user ID: " + userId));
 
@@ -63,35 +71,44 @@ public class WalletServiceImpl implements WalletService {
             throw new IllegalStateException("Cannot deposit funds into an inactive wallet.");
         }
 
-        BigDecimal updatedBalance = wallet.getBalance().add(request.getAmount());
-        wallet.setBalance(updatedBalance);
+        wallet.setBalance(wallet.getBalance().add(request.getAmount()));
         walletRepository.save(wallet);
 
-        // Clean entity creation via Mapper
         Transaction transaction = TransactionMapper.createDepositEntity(wallet, request.getAmount(), request.getDescription());
         Transaction savedTransaction = transactionRepository.save(transaction);
 
-        TransactionDto dto = TransactionMapper.toTransactionDto(savedTransaction);
-        //dto.setCurrentBalance(updatedBalance);
-        return dto;
+        // Log deposit action
+        auditLogService.logEvent(
+                user.getId(),
+                "DEPOSIT_SUCCESS",
+                String.format("Deposited %s into wallet.", request.getAmount()),
+                httpServletRequest
+        );
+
+        return TransactionMapper.toTransactionDto(savedTransaction);
     }
 
     @Transactional
     @Override
     public TransactionDto transfer(Long senderUserId, TransferRequest request) {
-        // 1. Fetch Sender User and Validate PIN
         User senderUser = userRepository.findById(senderUserId)
                 .orElseThrow(() -> new IllegalArgumentException("Sender user not found."));
 
         if (senderUser.getTransactionPin() == null) {
-            throw new IllegalStateException("Transaction PIN is not set. Please set a transaction PIN first.");
+            throw new IllegalStateException("Transaction PIN is not set.");
         }
 
+        // Verify PIN and Log Failures
         if (!passwordEncoder.matches(request.getPin(), senderUser.getTransactionPin())) {
+            auditLogService.logEvent(
+                    senderUser.getId(),
+                    "FAILED_PIN_VERIFICATION",
+                    "Failed transfer attempt: Invalid PIN entered.",
+                    httpServletRequest
+            );
             throw new IllegalArgumentException("Invalid Transaction PIN.");
         }
 
-        // 2. Fetch Sender Wallet
         Wallet senderWallet = walletRepository.findByUserId(senderUserId)
                 .orElseThrow(() -> new IllegalArgumentException("Sender wallet not found."));
 
@@ -99,7 +116,6 @@ public class WalletServiceImpl implements WalletService {
             throw new IllegalStateException("Sender wallet is inactive.");
         }
 
-        // 3. Fetch Recipient User & Wallet
         User recipientUser = userRepository.findByPhoneNumber(request.getRecipientPhoneNumber())
                 .orElseThrow(() -> new IllegalArgumentException("Recipient not found with phone number: " + request.getRecipientPhoneNumber()));
 
@@ -114,28 +130,31 @@ public class WalletServiceImpl implements WalletService {
             throw new IllegalStateException("Recipient wallet is inactive.");
         }
 
-        // 4. Check Available Balance
         if (senderWallet.getBalance().compareTo(request.getAmount()) < 0) {
             throw new IllegalArgumentException("Insufficient wallet balance.");
         }
 
-        // 5. Atomic Balance Updates
-        BigDecimal newSenderBalance = senderWallet.getBalance().subtract(request.getAmount());
-        BigDecimal newReceiverBalance = receiverWallet.getBalance().add(request.getAmount());
-
-        senderWallet.setBalance(newSenderBalance);
-        receiverWallet.setBalance(newReceiverBalance);
+        // Perform balance update
+        senderWallet.setBalance(senderWallet.getBalance().subtract(request.getAmount()));
+        receiverWallet.setBalance(receiverWallet.getBalance().add(request.getAmount()));
 
         walletRepository.save(senderWallet);
         walletRepository.save(receiverWallet);
 
-        // 6. Record Transaction & Map Response
-        Transaction transaction = TransactionMapper.createTransferEntity(senderWallet, receiverWallet, request.getAmount(), request.getDescription());
+        Transaction transaction = TransactionMapper.createTransferEntity(
+                senderWallet, receiverWallet, request.getAmount(), request.getDescription()
+        );
         Transaction savedTransaction = transactionRepository.save(transaction);
 
-        TransactionDto dto = TransactionMapper.toTransactionDto(savedTransaction);
-       // dto.setCurrentBalance(newSenderBalance);
-        return dto;
+        // Log successful transfer
+        auditLogService.logEvent(
+                senderUser.getId(),
+                "TRANSFER_SUCCESS",
+                String.format("Transferred %s to phone %s", request.getAmount(), request.getRecipientPhoneNumber()),
+                httpServletRequest
+        );
+
+        return TransactionMapper.toTransactionDto(savedTransaction);
     }
 
 
