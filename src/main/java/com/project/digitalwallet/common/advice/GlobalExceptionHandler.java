@@ -1,13 +1,19 @@
 package com.project.digitalwallet.common.advice;
 
+import com.project.digitalwallet.common.exception.ExpiredJwtException;
 import com.project.digitalwallet.common.exception.ResourceNotFoundException;
 import com.project.digitalwallet.common.util.ErrorResponse;
 import com.project.digitalwallet.common.util.ResponseWrapper;
 import com.twilio.exception.ApiException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -27,6 +33,27 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({ApiException.class})
     public ResponseEntity<ResponseWrapper<String>> handleApiException(ApiException apiException){
         return ErrorResponse.buildErrorResponse(apiException.getMessage(),HttpStatus.BAD_REQUEST);
+    }
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ResponseWrapper<String>> handleValidationException(
+            MethodArgumentNotValidException exception) {
+
+        String errors = exception.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .map(error ->
+                        error.getField() + ": " + error.getDefaultMessage()
+                )
+                .collect(Collectors.joining(", "));
+
+        return ErrorResponse.buildErrorResponse(
+                errors,
+                HttpStatus.BAD_REQUEST
+        );
+    }
+    @ExceptionHandler({ExpiredJwtException.class})
+    public ResponseEntity<ResponseWrapper<String>> handleJwtExpiredException(ExpiredJwtException exception){
+        return ErrorResponse.buildErrorResponse(exception.getMessage(),HttpStatus.BAD_REQUEST);
     }
 
 }

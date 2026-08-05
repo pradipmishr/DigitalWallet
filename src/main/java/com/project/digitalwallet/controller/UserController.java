@@ -4,6 +4,7 @@ import com.project.digitalwallet.common.util.ResponseWrapper;
 import com.project.digitalwallet.dto.RegisterRequest;
 import com.project.digitalwallet.dto.SetTransactionPinRequest;
 import com.project.digitalwallet.service.UserService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -17,7 +18,7 @@ public class UserController {
 
     @PostMapping("/transaction-pin")
     public ResponseWrapper<String> setTransactionPin(
-            @RequestBody SetTransactionPinRequest request,
+            @RequestBody @Valid SetTransactionPinRequest request,
             Authentication authentication
     ) {
 
