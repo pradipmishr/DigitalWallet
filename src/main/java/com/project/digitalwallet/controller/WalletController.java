@@ -45,7 +45,7 @@ public class WalletController {
             throw new IllegalStateException("Unauthenticated user.");
         }
 
-        // Access the underlying User entity or ID from UserPrincipal
+
         Long userId = currentUser.getUser().getId();
 
         TransactionDto response = walletService.deposit(userId, request);
