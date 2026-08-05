@@ -31,5 +31,4 @@ public class UserController {
         return new ResponseWrapper<>(null,"Transaction PIN set successfully",HttpStatus.CREATED.value(),true);
     }
 
-
 }
