@@ -45,6 +45,14 @@ public class WalletServiceImpl implements WalletService {
         Wallet savedWallet = walletRepository.save(wallet);
         return WalletMapper.toWalletDto(savedWallet);
     }
+    @Transactional(readOnly = true)
+    @Override
+    public WalletDto getCurrentUserWallet(Long userId) {
+        Wallet wallet = walletRepository.findByUserId(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Wallet not found for user ID: " + userId));
+
+        return WalletMapper.toWalletDto(wallet);
+    }
     @Transactional
     @Override
     public TransactionDto deposit(Long userId, DepositRequest request) {

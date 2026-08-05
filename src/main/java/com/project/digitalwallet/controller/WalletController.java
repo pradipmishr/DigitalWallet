@@ -4,6 +4,7 @@ import com.project.digitalwallet.common.util.ResponseWrapper;
 import com.project.digitalwallet.dto.DepositRequest;
 import com.project.digitalwallet.dto.TransactionDto;
 import com.project.digitalwallet.dto.TransferRequest;
+import com.project.digitalwallet.dto.WalletDto;
 import com.project.digitalwallet.security.UserPrincipal; // Import your UserPrincipal
 import com.project.digitalwallet.service.WalletService;
 import org.springframework.data.domain.Page;
@@ -19,6 +20,21 @@ import org.springframework.web.bind.annotation.*;
 public class WalletController {
 
     private final WalletService walletService;
+    @GetMapping("/me")
+    public ResponseWrapper<WalletDto> getCurrentUserWallet(
+            @AuthenticationPrincipal UserPrincipal currentUser
+    ) {
+        Long userId = currentUser.getUser().getId();
+        WalletDto walletDto = walletService.getCurrentUserWallet(userId);
+
+        return new ResponseWrapper<>(
+                walletDto,
+                "Wallet details retrieved successfully",
+                HttpStatus.OK.value(),
+                true
+        );
+    }
+
 
     @PostMapping("/deposit")
     public ResponseWrapper<TransactionDto> deposit(
