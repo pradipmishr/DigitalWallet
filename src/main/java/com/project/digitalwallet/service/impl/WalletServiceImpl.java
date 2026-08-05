@@ -1,11 +1,6 @@
 package com.project.digitalwallet.service.impl;
 
-import com.project.digitalwallet.common.enums.TransactionStatus;
-import com.project.digitalwallet.common.enums.TransactionType;
-import com.project.digitalwallet.dto.DepositRequest;
-import com.project.digitalwallet.dto.TransactionDto;
-import com.project.digitalwallet.dto.UserDto;
-import com.project.digitalwallet.dto.WalletDto;
+import com.project.digitalwallet.dto.*;
 import com.project.digitalwallet.entity.Transaction;
 import com.project.digitalwallet.entity.User;
 import com.project.digitalwallet.entity.Wallet;
@@ -20,9 +15,7 @@ import com.project.digitalwallet.common.util.WalletNumberGenerator;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-
 import java.math.BigDecimal;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -50,36 +43,69 @@ public class WalletServiceImpl implements WalletService {
     @Transactional
     @Override
     public TransactionDto deposit(Long userId, DepositRequest request) {
-        // 1. Automatically fetch wallet belonging to this user
         Wallet wallet = walletRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("No wallet found for user ID: " + userId));
 
-        // 2. Validate wallet status
         if (wallet.getStatus() != WalletStatus.ACTIVE) {
             throw new IllegalStateException("Cannot deposit funds into an inactive wallet.");
         }
 
-        // 3. Update balance
         BigDecimal updatedBalance = wallet.getBalance().add(request.getAmount());
         wallet.setBalance(updatedBalance);
         walletRepository.save(wallet);
 
-        // 4. Record transaction
-        Transaction transaction = new Transaction();
-        transaction.setSenderWallet(null);
-        transaction.setReceiverWallet(wallet);
-        transaction.setAmount(request.getAmount());
-        transaction.setType(TransactionType.DEPOSIT);
-        transaction.setStatus(TransactionStatus.SUCCESS);
-        transaction.setReferenceNumber("DEP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
-        transaction.setDescription(request.getDescription() != null ? request.getDescription() : "Self Deposit");
-
+        // Clean entity creation via Mapper
+        Transaction transaction = TransactionMapper.createDepositEntity(wallet, request.getAmount(), request.getDescription());
         Transaction savedTransaction = transactionRepository.save(transaction);
 
-        // 5. Return mapped response
         TransactionDto dto = TransactionMapper.toTransactionDto(savedTransaction);
         dto.setCurrentBalance(updatedBalance);
+        return dto;
+    }
 
+    @Transactional
+    @Override
+    public TransactionDto transfer(Long senderUserId, TransferRequest request) {
+        Wallet senderWallet = walletRepository.findByUserId(senderUserId)
+                .orElseThrow(() -> new IllegalArgumentException("Sender wallet not found."));
+
+        if (senderWallet.getStatus() != WalletStatus.ACTIVE) {
+            throw new IllegalStateException("Sender wallet is inactive.");
+        }
+
+        User recipientUser = userRepository.findByPhoneNumber(request.getRecipientPhoneNumber())
+                .orElseThrow(() -> new IllegalArgumentException("Recipient not found with phone number: " + request.getRecipientPhoneNumber()));
+
+        if (recipientUser.getId().equals(senderUserId)) {
+            throw new IllegalArgumentException("Cannot transfer money to yourself.");
+        }
+
+        Wallet receiverWallet = walletRepository.findByUserId(recipientUser.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Recipient wallet not found."));
+
+        if (receiverWallet.getStatus() != WalletStatus.ACTIVE) {
+            throw new IllegalStateException("Recipient wallet is inactive.");
+        }
+
+        if (senderWallet.getBalance().compareTo(request.getAmount()) < 0) {
+            throw new IllegalArgumentException("Insufficient wallet balance.");
+        }
+
+        BigDecimal newSenderBalance = senderWallet.getBalance().subtract(request.getAmount());
+        BigDecimal newReceiverBalance = receiverWallet.getBalance().add(request.getAmount());
+
+        senderWallet.setBalance(newSenderBalance);
+        receiverWallet.setBalance(newReceiverBalance);
+
+        walletRepository.save(senderWallet);
+        walletRepository.save(receiverWallet);
+
+        // Clean entity creation via Mapper
+        Transaction transaction = TransactionMapper.createTransferEntity(senderWallet, receiverWallet, request.getAmount(), request.getDescription());
+        Transaction savedTransaction = transactionRepository.save(transaction);
+
+        TransactionDto dto = TransactionMapper.toTransactionDto(savedTransaction);
+        dto.setCurrentBalance(newSenderBalance);
         return dto;
     }
 }

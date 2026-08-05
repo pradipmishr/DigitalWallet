@@ -3,6 +3,7 @@ package com.project.digitalwallet.controller;
 import com.project.digitalwallet.common.util.ResponseWrapper;
 import com.project.digitalwallet.dto.DepositRequest;
 import com.project.digitalwallet.dto.TransactionDto;
+import com.project.digitalwallet.dto.TransferRequest;
 import com.project.digitalwallet.security.UserPrincipal; // Import your UserPrincipal
 import com.project.digitalwallet.service.WalletService;
 import jakarta.validation.Valid;
@@ -34,6 +35,25 @@ public class WalletController {
         return new ResponseWrapper<>(
                 response,
                 "Funds deposited successfully",
+                HttpStatus.OK.value(),
+                true
+        );
+    }
+    @PostMapping("/transfer")
+    public ResponseWrapper<TransactionDto> transfer(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @Valid @RequestBody TransferRequest request
+    ) {
+        if (currentUser == null) {
+            throw new IllegalStateException("Unauthenticated user.");
+        }
+
+        Long senderUserId = currentUser.getUser().getId();
+        TransactionDto response = walletService.transfer(senderUserId, request);
+
+        return new ResponseWrapper<>(
+                response,
+                "Transfer successful",
                 HttpStatus.OK.value(),
                 true
         );
