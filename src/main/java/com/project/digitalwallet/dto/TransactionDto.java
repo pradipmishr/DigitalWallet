@@ -21,6 +21,6 @@ public class TransactionDto {
     private String receiverPhoneNumber;
 
     private String description;
-    private BigDecimal currentBalance;
+
     private LocalDateTime createdAt;
 }

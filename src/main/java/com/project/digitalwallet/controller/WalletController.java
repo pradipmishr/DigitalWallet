@@ -6,6 +6,7 @@ import com.project.digitalwallet.dto.TransactionDto;
 import com.project.digitalwallet.dto.TransferRequest;
 import com.project.digitalwallet.security.UserPrincipal; // Import your UserPrincipal
 import com.project.digitalwallet.service.WalletService;
+import org.springframework.data.domain.Page;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -54,6 +55,22 @@ public class WalletController {
         return new ResponseWrapper<>(
                 response,
                 "Transfer successful",
+                HttpStatus.OK.value(),
+                true
+        );
+    }
+    @GetMapping("/transactions")
+    public ResponseWrapper<Page<TransactionDto>> getTransactionHistory(
+            @AuthenticationPrincipal UserPrincipal currentUser,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        Long userId = currentUser.getUser().getId();
+        Page<TransactionDto> historyPage = walletService.getTransactionHistory(userId, page, size);
+
+        return new ResponseWrapper<>(
+                historyPage,
+                "Transaction history retrieved successfully",
                 HttpStatus.OK.value(),
                 true
         );

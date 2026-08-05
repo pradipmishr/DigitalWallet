@@ -12,10 +12,13 @@ import com.project.digitalwallet.repository.UserRepository;
 import com.project.digitalwallet.repository.WalletRepository;
 import com.project.digitalwallet.service.WalletService;
 import com.project.digitalwallet.common.util.WalletNumberGenerator;
-import jakarta.transaction.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Pageable;
 import java.math.BigDecimal;
 
 @Service
@@ -61,7 +64,7 @@ public class WalletServiceImpl implements WalletService {
         Transaction savedTransaction = transactionRepository.save(transaction);
 
         TransactionDto dto = TransactionMapper.toTransactionDto(savedTransaction);
-        dto.setCurrentBalance(updatedBalance);
+        //dto.setCurrentBalance(updatedBalance);
         return dto;
     }
 
@@ -123,7 +126,20 @@ public class WalletServiceImpl implements WalletService {
         Transaction savedTransaction = transactionRepository.save(transaction);
 
         TransactionDto dto = TransactionMapper.toTransactionDto(savedTransaction);
-        dto.setCurrentBalance(newSenderBalance);
+       // dto.setCurrentBalance(newSenderBalance);
         return dto;
+    }
+
+
+    @Transactional(readOnly = true)
+    @Override
+    public Page<TransactionDto> getTransactionHistory(Long userId, int page, int size) {
+        Wallet wallet = walletRepository.findByUserId(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Wallet not found for user ID: " + userId));
+
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Transaction> transactionPage = transactionRepository.findAllByWalletId(wallet.getId(), pageable);
+
+        return transactionPage.map(TransactionMapper::toTransactionDto);
     }
 }
