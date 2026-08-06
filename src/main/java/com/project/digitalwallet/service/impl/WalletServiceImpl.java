@@ -10,6 +10,7 @@ import com.project.digitalwallet.mapper.WalletMapper;
 import com.project.digitalwallet.repository.TransactionRepository;
 import com.project.digitalwallet.repository.UserRepository;
 import com.project.digitalwallet.repository.WalletRepository;
+import com.project.digitalwallet.service.AdminService;
 import com.project.digitalwallet.service.AuditLogService;
 import com.project.digitalwallet.service.WalletService;
 import com.project.digitalwallet.common.util.WalletNumberGenerator;
@@ -34,6 +35,7 @@ public class WalletServiceImpl implements WalletService {
     private final PasswordEncoder passwordEncoder;
     private final AuditLogService auditLogService;
     private final HttpServletRequest httpServletRequest;
+    private final AdminService adminService;
 
     @Override
     public WalletDto createWallet(UserDto userDto) {
@@ -134,6 +136,9 @@ public class WalletServiceImpl implements WalletService {
             throw new IllegalArgumentException("Insufficient wallet balance.");
         }
 
+
+        validateDailyLimit(senderWallet, request.getAmount());
+
         // Perform balance update
         senderWallet.setBalance(senderWallet.getBalance().subtract(request.getAmount()));
         receiverWallet.setBalance(receiverWallet.getBalance().add(request.getAmount()));
@@ -155,6 +160,31 @@ public class WalletServiceImpl implements WalletService {
         );
 
         return TransactionMapper.toTransactionDto(savedTransaction);
+    }
+    private void validateDailyLimit(Wallet senderWallet, BigDecimal transferAmount) {
+        java.time.LocalDateTime startOfDay = java.time.LocalDate.now().atStartOfDay();
+        java.time.LocalDateTime endOfDay = java.time.LocalDate.now().atTime(java.time.LocalTime.MAX);
+
+        BigDecimal totalToday = transactionRepository.findTotalTransferredToday(
+                senderWallet.getId(),
+                startOfDay,
+                endOfDay
+        );
+
+        BigDecimal globalLimit = adminService.getGlobalDailyLimit();
+        BigDecimal projectedTotal = totalToday.add(transferAmount);
+
+        if (projectedTotal.compareTo(globalLimit) > 0) {
+            BigDecimal remainingLimit = globalLimit.subtract(totalToday);
+            if (remainingLimit.compareTo(BigDecimal.ZERO) < 0) {
+                remainingLimit = BigDecimal.ZERO;
+            }
+
+            throw new IllegalStateException(String.format(
+                    "Transfer exceeds the global daily limit of %s. Total transferred today: %s. Remaining daily limit: %s",
+                    globalLimit, totalToday, remainingLimit
+            ));
+        }
     }
 
 
