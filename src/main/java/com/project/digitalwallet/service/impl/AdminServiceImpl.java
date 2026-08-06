@@ -41,6 +41,10 @@ public class AdminServiceImpl implements AdminService {
     private final HttpServletRequest httpServletRequest;
     @Value("${wallet.default-daily-limit}")
     private BigDecimal globalDailyLimit;
+    @Override
+    public BigDecimal getGlobalDailyLimit() {
+        return this.globalDailyLimit;
+    }
 
     @Transactional(readOnly = true)
     @Override
@@ -181,7 +185,4 @@ public class AdminServiceImpl implements AdminService {
                 .createdAt(user.getCreatedAt())
                 .build();
     }
-
-
-
 }

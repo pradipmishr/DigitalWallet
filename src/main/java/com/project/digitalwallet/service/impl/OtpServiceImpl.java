@@ -3,29 +3,30 @@ package com.project.digitalwallet.service.impl;
 import com.project.digitalwallet.common.util.OtpGenerator;
 import com.project.digitalwallet.entity.Otp;
 import com.project.digitalwallet.repository.OtpRepository;
+import com.project.digitalwallet.service.EmailService;
 import com.project.digitalwallet.service.OtpService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-
 @Service
 @RequiredArgsConstructor
 public class OtpServiceImpl implements OtpService {
+
     private final OtpRepository otpRepository;
-    private final OtpGenerator otpGenerator;
-    private final TwilioSmsService twilioSmsService;
+    private final EmailService emailService;
 
     @Override
     @Transactional
-    public void sendOtp(String phoneNumber) {
-        otpRepository.deleteByPhoneNumber(phoneNumber);
+    public void sendOtp(String email) {
+        // Delete any existing unverified OTP for this email
+        otpRepository.deleteByEmail(email);
 
         String code = OtpGenerator.generateOtp();
 
         Otp otp = Otp.builder()
-                .phoneNumber(phoneNumber)
+                .email(email)
                 .code(code)
                 .expiresAt(LocalDateTime.now().plusMinutes(5))
                 .verified(false)
@@ -33,17 +34,16 @@ public class OtpServiceImpl implements OtpService {
 
         otpRepository.save(otp);
 
-        // Send real SMS code via Twilio
-        //twilioSmsService.sendSms(phoneNumber, "Your Digital Wallet code is: " + code);
-        System.out.println("Your Digital Wallet code is: " + code);
+        // Send Email
+        emailService.sendOtpEmail(email, code);
+        System.out.println("Sent OTP " + code + " to email: " + email);
     }
 
     @Override
     @Transactional
-    public boolean verifyOtp(String phoneNumber, String code) {
-
-        Otp otp = otpRepository.findTopByPhoneNumberOrderByCreatedAtDesc(phoneNumber)
-                .orElseThrow(() -> new IllegalArgumentException("No OTP found for this phone number."));
+    public boolean verifyOtp(String email, String code) {
+        Otp otp = otpRepository.findTopByEmailOrderByCreatedAtDesc(email)
+                .orElseThrow(() -> new IllegalArgumentException("No OTP found for this email address."));
 
         if (otp.isVerified()) {
             throw new IllegalStateException("This OTP has already been used.");

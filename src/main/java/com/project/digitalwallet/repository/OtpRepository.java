@@ -12,9 +12,10 @@ import java.util.Optional;
 @Repository
 public interface OtpRepository extends JpaRepository<Otp, Long> {
 
-    Optional<Otp> findTopByPhoneNumberOrderByCreatedAtDesc(String phoneNumber);
+    Optional<Otp> findTopByEmailOrderByCreatedAtDesc(String email);
 
-    void deleteByPhoneNumber(String phoneNumber);
+    void deleteByEmail(String email);
+
     @Modifying
     @Query("DELETE FROM Otp o WHERE o.expiresAt < :now")
     void deleteExpiredOtps(LocalDateTime now);

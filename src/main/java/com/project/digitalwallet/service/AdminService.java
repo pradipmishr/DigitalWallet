@@ -17,5 +17,6 @@ public interface AdminService {
     WalletDto unfreezeWalletByPhoneNumber(String phoneNumber);
     public Page<AdminUserResponseDto> getAllUsers(int page, int size);
     public Page<AdminUserResponseDto> searchUsers(String query, int page, int size);
+    BigDecimal getGlobalDailyLimit();
 
 }

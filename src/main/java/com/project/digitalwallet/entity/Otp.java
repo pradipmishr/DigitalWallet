@@ -1,23 +1,21 @@
 package com.project.digitalwallet.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "otps")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@Entity
+@Table(name = "otps")
 public class Otp extends BaseEntity {
 
     @Column(nullable = false)
-    private String phoneNumber;
+    private String email;
 
     @Column(nullable = false)
     private String code;

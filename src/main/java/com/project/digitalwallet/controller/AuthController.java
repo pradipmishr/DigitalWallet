@@ -21,7 +21,7 @@ public class AuthController {
     public ResponseWrapper<String> initiateRegistration(@Valid @RequestBody RegisterRequest registerRequest) {
         userService.initiateRegistration(registerRequest);
         return new ResponseWrapper<>(
-                "OTP sent to " + registerRequest.getPhoneNumber(),
+                "OTP sent to " + registerRequest.getEmail(),
                 "OTP sent successfully",
                 HttpStatus.OK.value(),
                 true

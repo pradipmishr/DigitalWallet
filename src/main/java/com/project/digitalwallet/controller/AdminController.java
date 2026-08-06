@@ -64,26 +64,7 @@ public class AdminController {
                 true
         );
     }
-    @GetMapping("/settings/daily-limit")
-    public ResponseWrapper<BigDecimal> getGlobalDailyLimit() {
-        return new ResponseWrapper<>(
-                adminService.getGlobalDailyLimit(),
-                "Global daily limit retrieved successfully",
-                HttpStatus.OK.value(),
-                true
-        );
-    }
 
-    @PutMapping("/settings/daily-limit")
-    public ResponseWrapper<BigDecimal> updateGlobalDailyLimit(@Valid @RequestBody GlobalLimitRequest request) {
-        BigDecimal updatedLimit = adminService.updateGlobalDailyLimit(request.getDailyLimit());
-        return new ResponseWrapper<>(
-                updatedLimit,
-                "Global daily limit updated successfully",
-                HttpStatus.OK.value(),
-                true
-        );
-    }
 
 
 }

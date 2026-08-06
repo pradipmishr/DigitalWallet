@@ -25,7 +25,7 @@ public class AuditLogServiceImpl implements AuditLogService {
     private final UserRepository userRepository;
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public void logEvent(Long userId, String action, String description, HttpServletRequest request) {
         try {
             AuditLog auditLog = new AuditLog();

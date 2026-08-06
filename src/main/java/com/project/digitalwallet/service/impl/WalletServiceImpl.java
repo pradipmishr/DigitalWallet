@@ -15,6 +15,7 @@ import com.project.digitalwallet.service.AuditLogService;
 import com.project.digitalwallet.service.WalletService;
 import com.project.digitalwallet.common.util.WalletNumberGenerator;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,7 @@ public class WalletServiceImpl implements WalletService {
     private final AuditLogService auditLogService;
     private final HttpServletRequest httpServletRequest;
     private final AdminService adminService;
+
 
     @Override
     public WalletDto createWallet(UserDto userDto) {
