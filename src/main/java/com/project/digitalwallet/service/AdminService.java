@@ -1,10 +1,7 @@
 package com.project.digitalwallet.service;
 
 
-import com.project.digitalwallet.dto.AdminDashboardStatsDto;
-import com.project.digitalwallet.dto.AdminUserResponseDto;
-import com.project.digitalwallet.dto.AuditLogDto;
-import com.project.digitalwallet.dto.WalletDto;
+import com.project.digitalwallet.dto.*;
 import org.springframework.data.domain.Page;
 
 import java.math.BigDecimal;
@@ -18,5 +15,6 @@ public interface AdminService {
     public Page<AdminUserResponseDto> getAllUsers(int page, int size);
     public Page<AdminUserResponseDto> searchUsers(String query, int page, int size);
     BigDecimal getGlobalDailyLimit();
+    public void resetUserTransactionPin(AdminResetPinRequest request);
 
 }

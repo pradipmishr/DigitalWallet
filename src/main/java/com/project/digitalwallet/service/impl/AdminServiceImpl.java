@@ -2,10 +2,7 @@
 package com.project.digitalwallet.service.impl;
 
 import com.project.digitalwallet.common.enums.WalletStatus;
-import com.project.digitalwallet.dto.AdminDashboardStatsDto;
-import com.project.digitalwallet.dto.AdminUserResponseDto;
-import com.project.digitalwallet.dto.AuditLogDto;
-import com.project.digitalwallet.dto.WalletDto;
+import com.project.digitalwallet.dto.*;
 import com.project.digitalwallet.entity.AuditLog;
 import com.project.digitalwallet.entity.User;
 import com.project.digitalwallet.entity.Wallet;
@@ -23,6 +20,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,6 +37,7 @@ public class AdminServiceImpl implements AdminService {
     private final AuditLogRepository auditLogRepository;
     private final AuditLogService auditLogService;
     private final HttpServletRequest httpServletRequest;
+    private final PasswordEncoder passwordEncoder;
     @Value("${wallet.default-daily-limit}")
     private BigDecimal globalDailyLimit;
     @Override
@@ -184,5 +183,23 @@ public class AdminServiceImpl implements AdminService {
                 .walletStatus(wallet != null ? wallet.getStatus() : null)
                 .createdAt(user.getCreatedAt())
                 .build();
+    }
+    @Transactional
+    @Override
+    public void resetUserTransactionPin(AdminResetPinRequest request) {
+        User user = userRepository.findByPhoneNumber(request.getPhoneNumber())
+                .orElseThrow(() -> new IllegalArgumentException("User not found with phone number: " + request.getPhoneNumber()));
+
+        // Encode and set the new PIN
+        user.setTransactionPin(passwordEncoder.encode(request.getNewPin()));
+        userRepository.save(user);
+
+        // Audit log
+        auditLogService.logEvent(
+                user.getId(),
+                "ADMIN_PIN_RESET",
+                String.format("Transaction PIN force-reset by admin for phone number: %s", request.getPhoneNumber()),
+                httpServletRequest
+        );
     }
 }

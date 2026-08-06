@@ -7,11 +7,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
 
 @RestController
 @RequestMapping("/admin")
@@ -60,6 +58,16 @@ public class AdminController {
         return new ResponseWrapper<>(
                 usersPage,
                 "Users retrieved successfully",
+                HttpStatus.OK.value(),
+                true
+        );
+    }
+    @PutMapping("/users/reset-pin")
+    public ResponseWrapper<String> resetUserPin(@Valid @RequestBody AdminResetPinRequest request) {
+        adminService.resetUserTransactionPin(request);
+        return new ResponseWrapper<>(
+                "Transaction PIN reset successfully for phone number: " + request.getPhoneNumber(),
+                "SUCCESS",
                 HttpStatus.OK.value(),
                 true
         );
