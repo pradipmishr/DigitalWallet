@@ -202,4 +202,22 @@ public class AdminServiceImpl implements AdminService {
                 httpServletRequest
         );
     }
+    @Transactional
+    @Override
+    public void changeUserPassword(AdminChangePasswordRequest request) {
+        User user = userRepository.findByPhoneNumber(request.getPhoneNumber())
+                .orElseThrow(() -> new IllegalArgumentException("User not found with phone number: " + request.getPhoneNumber()));
+
+        // Encode and set new account password
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        // Audit log
+        auditLogService.logEvent(
+                user.getId(),
+                "ADMIN_PASSWORD_CHANGE",
+                String.format("Account password force-changed by admin for phone number: %s", request.getPhoneNumber()),
+                httpServletRequest
+        );
+    }
 }

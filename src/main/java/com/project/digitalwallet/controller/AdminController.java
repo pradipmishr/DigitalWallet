@@ -72,6 +72,16 @@ public class AdminController {
                 true
         );
     }
+    @PutMapping("/users/change-password")
+    public ResponseWrapper<String> changeUserPassword(@Valid @RequestBody AdminChangePasswordRequest request) {
+        adminService.changeUserPassword(request);
+        return new ResponseWrapper<>(
+                "Password changed successfully for user with phone number: " + request.getPhoneNumber(),
+                "SUCCESS",
+                HttpStatus.OK.value(),
+                true
+        );
+    }
 
 
 

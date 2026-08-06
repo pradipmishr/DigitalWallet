@@ -16,5 +16,6 @@ public interface AdminService {
     public Page<AdminUserResponseDto> searchUsers(String query, int page, int size);
     BigDecimal getGlobalDailyLimit();
     public void resetUserTransactionPin(AdminResetPinRequest request);
+    void changeUserPassword(AdminChangePasswordRequest request);
 
 }
