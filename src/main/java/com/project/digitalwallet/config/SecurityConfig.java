@@ -38,6 +38,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/auth/**"
                         ).permitAll()
+                        .requestMatchers("/admin/**")
+                        .hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session ->

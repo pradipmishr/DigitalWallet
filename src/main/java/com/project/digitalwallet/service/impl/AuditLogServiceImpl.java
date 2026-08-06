@@ -12,6 +12,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.net.Inet4Address;
+import java.net.Inet6Address;
+import java.net.InetAddress;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -32,9 +36,23 @@ public class AuditLogServiceImpl implements AuditLogService {
                 auditLog.setUser(userRef);
             }
 
+            InetAddress local = null;
+            InetAddress remote = null;
+            try {
+                // Get local machine IP
+                local = Inet4Address.getLocalHost();
+                System.out.println("Local IP: " + local.getHostAddress());
+
+                // Get IP for a domain name
+                remote = Inet6Address.getByName(local.getHostName());
+                System.out.println("Remote IP: " + remote.getHostAddress());
+            } catch (Exception e) {
+                System.out.println("Error resolving IP");
+            }
+
             auditLog.setAction(action);
             auditLog.setDescription(description);
-            auditLog.setIpAddress(extractIpAddress(request));
+            auditLog.setIpAddress(remote.getHostAddress());
 
             AuditLog saved = auditLogRepository.saveAndFlush(auditLog);
             log.info("Successfully persisted AuditLog ID: {} for action: {}", saved.getId(), action);
@@ -43,14 +61,5 @@ public class AuditLogServiceImpl implements AuditLogService {
         }
     }
 
-    private String extractIpAddress(HttpServletRequest request) {
-        if (request == null) return "UNKNOWN";
-        String ip = request.getHeader("X-Forwarded-For");
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getRemoteAddr();
-        } else {
-            ip = ip.split(",")[0];
-        }
-        return ip != null ? ip : "UNKNOWN";
-    }
+
 }
