@@ -72,7 +72,7 @@ public class AdminController {
                 true
         );
     }
-    @PutMapping("/users/change-password")
+    @PutMapping("/users/reset-password")
     public ResponseWrapper<String> changeUserPassword(@Valid @RequestBody AdminChangePasswordRequest request) {
         adminService.changeUserPassword(request);
         return new ResponseWrapper<>(
@@ -82,7 +82,5 @@ public class AdminController {
                 true
         );
     }
-
-
 
 }
