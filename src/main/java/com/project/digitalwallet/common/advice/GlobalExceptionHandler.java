@@ -5,6 +5,7 @@ import com.project.digitalwallet.common.exception.ResourceNotFoundException;
 import com.project.digitalwallet.common.util.ErrorResponse;
 import com.project.digitalwallet.common.util.ResponseWrapper;
 import com.twilio.exception.ApiException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,9 +17,11 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.NoHandlerFoundException;
 
 import java.util.stream.Collectors;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -92,9 +95,25 @@ public class GlobalExceptionHandler {
         return ErrorResponse.buildErrorResponse("Http method not supported", HttpStatus.BAD_REQUEST);
 
     }
+    @ExceptionHandler(NoHandlerFoundException.class)
+    public ResponseEntity<ResponseWrapper<String>> handleNoHandlerFound(
+            NoHandlerFoundException ex) {
 
-//    @ExceptionHandler(Exception.class)
-//    public ResponseEntity<ResponseWrapper<String>> handleGlobalException(Exception ex) {
-//        return ErrorResponse.buildErrorResponse("An unexpected error occurred. Please try again later.", HttpStatus.INTERNAL_SERVER_ERROR);
-//    }
+        return ErrorResponse.buildErrorResponse(
+                "Endpoint not found",
+                HttpStatus.NOT_FOUND
+        );
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ResponseWrapper<String>> handleGlobalException(
+            Exception ex) {
+
+        log.error("Unhandled exception", ex);
+
+        return ErrorResponse.buildErrorResponse(
+                "An unexpected error occurred.",
+                HttpStatus.INTERNAL_SERVER_ERROR
+        );
+    }
 }
