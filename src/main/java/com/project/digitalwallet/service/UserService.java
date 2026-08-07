@@ -1,8 +1,8 @@
 package com.project.digitalwallet.service;
 
-import com.project.digitalwallet.dto.RegisterRequest;
-import com.project.digitalwallet.dto.RegisterVerifyRequest;
-import com.project.digitalwallet.dto.UserDto;
+import com.project.digitalwallet.dto.*;
+import com.project.digitalwallet.entity.User;
+import jakarta.transaction.Transactional;
 
 import java.util.List;
 
@@ -14,4 +14,9 @@ public interface UserService {
 
     List<UserDto> getAllUsers();
     void setTransactionPin(String phoneNumber, String pin);
+
+
+    void initiatePinReset(UserDto userDto);
+    VerifyPinOtpResponse verifyPinOtp(UserDto userDto, VerifyPinOtpRequest request);
+    void resetPinWithToken(UserDto userDto, ResetPinWithTokenRequest request);
 }

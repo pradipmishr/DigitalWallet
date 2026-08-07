@@ -40,6 +40,8 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers("/admin/**")
                         .hasRole("ADMIN")
+                        .requestMatchers("/user/**")
+                        .hasRole("USER")
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session ->
@@ -93,9 +95,12 @@ public class SecurityConfig {
         return (request, response, authException) -> {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json");
-            response.getWriter().write(
-                    "{\"message\":\"Unauthorized. Please login first\"}"
-            );
+
+            response.getWriter().write("""
+        {
+            "message":"Authentication required or invalid access token."
+        }
+        """);
         };
     }
 }

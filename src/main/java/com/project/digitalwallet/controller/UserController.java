@@ -1,8 +1,9 @@
 package com.project.digitalwallet.controller;
 
 import com.project.digitalwallet.common.util.ResponseWrapper;
-import com.project.digitalwallet.dto.SetTransactionPinRequest;
-import com.project.digitalwallet.dto.StatementRequest;
+import com.project.digitalwallet.dto.*;
+import com.project.digitalwallet.entity.User;
+import com.project.digitalwallet.mapper.UserMapper;
 import com.project.digitalwallet.security.UserPrincipal;
 import com.project.digitalwallet.service.TransactionService;
 import com.project.digitalwallet.service.UserService;
@@ -74,5 +75,54 @@ public class UserController {
                 .contentLength(pdfBytes.length)
                 .body(new ByteArrayResource(pdfBytes));
     }
+    @PostMapping("/forgot-pin")
+    public ResponseWrapper<String> initiatePinReset(
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+
+        UserDto currentUserDto = UserMapper.toUserDto(userPrincipal.getUser());
+        userService.initiatePinReset(currentUserDto);
+
+        return new ResponseWrapper<>(
+                "Transaction PIN reset OTP sent to " + currentUserDto.getEmail(),
+                "OTP sent successfully",
+                HttpStatus.OK.value(),
+                true
+        );
+    }
+
+    @PostMapping("/verify-pin-otp")
+    public ResponseWrapper<VerifyPinOtpResponse> verifyPinOtp(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Valid @RequestBody VerifyPinOtpRequest request) {
+
+        UserDto currentUserDto = UserMapper.toUserDto(userPrincipal.getUser());
+        VerifyPinOtpResponse response = userService.verifyPinOtp(currentUserDto, request);
+
+        return new ResponseWrapper<>(
+                response,
+                "OTP verified successfully",
+                HttpStatus.OK.value(),
+                true
+        );
+    }
+
+    // 3. Reset Transaction PIN using Reset Token
+    @PostMapping("/reset-pin")
+    public ResponseWrapper<String> resetPin(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @Valid @RequestBody ResetPinWithTokenRequest request) {
+
+        UserDto currentUserDto = UserMapper.toUserDto(userPrincipal.getUser());
+        userService.resetPinWithToken(currentUserDto, request);
+
+        return new ResponseWrapper<>(
+                "Transaction PIN updated successfully.",
+                "SUCCESS",
+                HttpStatus.OK.value(),
+                true
+        );
+    }
+
+
 
 }
