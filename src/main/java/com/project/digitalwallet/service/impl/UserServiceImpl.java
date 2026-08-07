@@ -1,23 +1,26 @@
 package com.project.digitalwallet.service.impl;
 
-import com.project.digitalwallet.dto.RegisterRequest;
-import com.project.digitalwallet.dto.RegisterVerifyRequest;
-import com.project.digitalwallet.dto.UserDto;
-import com.project.digitalwallet.dto.WalletDto;
+import com.project.digitalwallet.dto.*;
 import com.project.digitalwallet.entity.User;
 import com.project.digitalwallet.mapper.UserMapper;
 import com.project.digitalwallet.repository.OtpRepository;
 import com.project.digitalwallet.repository.UserRepository;
-import com.project.digitalwallet.service.AuditLogService;
-import com.project.digitalwallet.service.OtpService;
-import com.project.digitalwallet.service.UserService;
-import com.project.digitalwallet.service.WalletService;
+import com.project.digitalwallet.service.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
+import java.io.ByteArrayInputStream;
 import java.util.List;
 
 @Service
@@ -31,6 +34,7 @@ public class UserServiceImpl implements UserService {
     private final OtpRepository otpRepository;
     private final AuditLogService auditLogService;
     private final HttpServletRequest httpServletRequest;
+    private final TransactionService transactionService;
 
     @Override
     public void initiateRegistration(RegisterRequest request) {
@@ -112,4 +116,5 @@ public class UserServiceImpl implements UserService {
 
         userRepository.save(user);
     }
+
 }

@@ -46,4 +46,17 @@ public interface TransactionRepository
             @Param("startOfDay") LocalDateTime startOfDay,
             @Param("endOfDay") LocalDateTime endOfDay
     );
+
+    // 1. Used for CSV/PDF statement generation (fetches transactions by User ID across date range)
+    @Query("SELECT t FROM Transaction t WHERE (t.senderWallet.user.id = :userId OR t.receiverWallet.user.id = :userId) " +
+            "AND t.createdAt BETWEEN :startDate AND :endDate ORDER BY t.createdAt DESC")
+    List<Transaction> findByUserIdAndCreatedAtBetween(
+            @Param("userId") Long userId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
+
+    // 2. Paginated transaction history for the user's wallet
+    @Query("SELECT t FROM Transaction t WHERE t.senderWallet.user.id = :userId OR t.receiverWallet.user.id = :userId ORDER BY t.createdAt DESC")
+    Page<Transaction> findByUserId(@Param("userId") Long userId, Pageable pageable);
 }

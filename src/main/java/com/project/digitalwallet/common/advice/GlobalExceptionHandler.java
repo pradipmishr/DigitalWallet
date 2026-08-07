@@ -93,8 +93,8 @@ public class GlobalExceptionHandler {
 
     }
 
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ResponseWrapper<String>> handleGlobalException(Exception ex) {
-        return ErrorResponse.buildErrorResponse("An unexpected error occurred. Please try again later.", HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+//    @ExceptionHandler(Exception.class)
+//    public ResponseEntity<ResponseWrapper<String>> handleGlobalException(Exception ex) {
+//        return ErrorResponse.buildErrorResponse("An unexpected error occurred. Please try again later.", HttpStatus.INTERNAL_SERVER_ERROR);
+//    }
 }
