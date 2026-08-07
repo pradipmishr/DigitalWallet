@@ -54,5 +54,41 @@ public class AuthController {
                 true
         );
     }
+    @PostMapping("/forgot-password")
+    public ResponseWrapper<String> initiateForgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.initiateForgotPassword(request);
+        return new ResponseWrapper<>(
+                "If an account exists with that email, an OTP has been sent.",
+                "OTP sent successfully",
+                HttpStatus.OK.value(),
+                true
+        );
+    }
+
+    // 2. Verify OTP & Receive Reset Token
+    @PostMapping("/verify-reset-otp")
+    public ResponseWrapper<VerifyResetOtpResponse> verifyResetOtp(@Valid @RequestBody VerifyResetOtpRequest request) {
+        VerifyResetOtpResponse response = authService.verifyResetOtp(request);
+        return new ResponseWrapper<>(
+                response,
+                "OTP verified successfully",
+                HttpStatus.OK.value(),
+                true
+        );
+    }
+
+    // 3. Reset Password using Reset Token
+    @PostMapping("/reset-password")
+    public ResponseWrapper<String> resetPassword(@Valid @RequestBody ResetPasswordWithTokenRequest request) {
+        authService.resetPasswordWithToken(request);
+        return new ResponseWrapper<>(
+                "Password reset successfully. You can now log in with your new password.",
+                "SUCCESS",
+                HttpStatus.OK.value(),
+                true
+        );
+    }
 
 }
+
+
