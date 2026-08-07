@@ -3,6 +3,7 @@ package com.project.digitalwallet.service;
 
 import com.project.digitalwallet.dto.*;
 import org.springframework.data.domain.Page;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 

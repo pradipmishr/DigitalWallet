@@ -1,20 +1,37 @@
 package com.project.digitalwallet.service.impl;
 
-import com.project.digitalwallet.dto.StatementRequest;
+import com.project.digitalwallet.common.enums.TransactionStatus;
+import com.project.digitalwallet.common.enums.TransactionType;
+import com.project.digitalwallet.dto.*;
 import com.project.digitalwallet.entity.Transaction;
 import com.project.digitalwallet.entity.User;
+import com.project.digitalwallet.entity.Wallet;
+import com.project.digitalwallet.mapper.TransactionMapper;
 import com.project.digitalwallet.repository.TransactionRepository;
 import com.project.digitalwallet.repository.UserRepository;
+import com.project.digitalwallet.repository.WalletRepository;
+import com.project.digitalwallet.service.AuditLogService;
 import com.project.digitalwallet.service.TransactionService;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintWriter;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -23,6 +40,9 @@ public class TransactionServiceImpl implements TransactionService {
 
     private final TransactionRepository transactionRepository;
     private final UserRepository userRepository;
+    private final WalletRepository walletRepository;
+    private final AuditLogService auditLogService;
+    private final HttpServletRequest httpServletRequest;
 
     @Override
     public ByteArrayInputStream generateCsvStatement(Long userId, StatementRequest request) {
@@ -133,5 +153,105 @@ public class TransactionServiceImpl implements TransactionService {
             </body>
             </html>
             """, user.getFirstName(), user.getLastName(), request.getStartDate(), request.getEndDate(), tableRows);
+    }
+    @Override
+    public Page<TransactionDto> searchTransactionsForAdmin(AdminTransactionSearchRequest request) {
+        Specification<Transaction> spec = (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            // 1. Direct Reference Number Lookup (Highest Priority)
+            if (request.getReferenceNumber() != null && !request.getReferenceNumber().isBlank()) {
+                predicates.add(criteriaBuilder.equal(
+                        root.get("referenceNumber"),
+                        request.getReferenceNumber().trim()
+                ));
+            }
+
+            // 2. Filter by Sender Phone Number
+            if (request.getSenderPhoneNumber() != null && !request.getSenderPhoneNumber().isBlank()) {
+                predicates.add(criteriaBuilder.equal(
+                        root.get("senderWallet").get("user").get("phoneNumber"),
+                        request.getSenderPhoneNumber().trim()
+                ));
+            }
+
+            // 3. Filter by Receiver Phone Number
+            if (request.getReceiverPhoneNumber() != null && !request.getReceiverPhoneNumber().isBlank()) {
+                predicates.add(criteriaBuilder.equal(
+                        root.get("receiverWallet").get("user").get("phoneNumber"),
+                        request.getReceiverPhoneNumber().trim()
+                ));
+            }
+
+            // 4. Filter by Date
+            if (request.getDate() != null) {
+                LocalDateTime startOfDay = request.getDate().atStartOfDay();
+                LocalDateTime endOfDay = request.getDate().atTime(LocalTime.MAX);
+                predicates.add(criteriaBuilder.between(root.get("createdAt"), startOfDay, endOfDay));
+            }
+
+            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Pageable pageable = PageRequest.of(request.getPage(), request.getSize(), Sort.by("createdAt").descending());
+        return transactionRepository.findAll(spec, pageable).map(TransactionMapper::toTransactionDto);
+    }
+    @Override
+    @Transactional
+    public TransactionDto reverseTransaction(UserDto adminUserDto, AdminReverseTransactionRequest request) {
+        Transaction originalTx = transactionRepository.findByReferenceNumber(request.getReferenceNumber())
+                .orElseThrow(() -> new IllegalArgumentException("Original transaction not found with reference number: " + request.getReferenceNumber()));
+
+
+        // 2. Ensure transaction is in SUCCESS state and hasn't been REVERSED yet
+        if (originalTx.getStatus() == TransactionStatus.REVERSED) {
+            throw new IllegalStateException("This transaction has already been reversed.");
+        }
+        if (originalTx.getStatus() != TransactionStatus.SUCCESS) {
+            throw new IllegalStateException("Only SUCCESSFUL transactions can be reversed.");
+        }
+
+        Wallet senderWallet = originalTx.getSenderWallet();
+        Wallet receiverWallet = originalTx.getReceiverWallet();
+        BigDecimal amount = originalTx.getAmount();
+
+        // 3. Ensure recipient has enough balance to claw back
+        if (receiverWallet.getBalance().compareTo(amount) < 0) {
+            throw new IllegalStateException("Receiver wallet has insufficient funds to process reversal.");
+        }
+
+        // 4. Update balances (Debit receiver, Credit sender)
+        receiverWallet.setBalance(receiverWallet.getBalance().subtract(amount));
+        senderWallet.setBalance(senderWallet.getBalance().add(amount));
+
+        walletRepository.save(receiverWallet);
+        walletRepository.save(senderWallet);
+
+        // 5. Mark original transaction status as REVERSED
+        originalTx.setStatus(TransactionStatus.REVERSED);
+        transactionRepository.save(originalTx);
+
+        // 6. Create new REVERSAL entry in the ledger
+        Transaction reversalTx = Transaction.builder()
+                .senderWallet(receiverWallet)
+                .receiverWallet(senderWallet)
+                .amount(amount)
+                .type(TransactionType.REVERSAL)
+                .status(TransactionStatus.SUCCESS)
+                .referenceNumber("REV-" + originalTx.getReferenceNumber())
+                .description("REVERSAL for Tx #" + originalTx.getId() + ". Reason: " + request.getReason())
+                .build();
+
+        Transaction savedReversal = transactionRepository.save(reversalTx);
+
+        // 7. Audit log
+        auditLogService.logEvent(
+                adminUserDto.getId(),
+                "ADMIN_TRANSACTION_REVERSAL",
+                String.format("Admin reversed Tx #%d (Amount: %s). Reason: %s", originalTx.getId(), amount, request.getReason()),
+                httpServletRequest
+        );
+
+        return TransactionMapper.toTransactionDto(savedReversal);
     }
 }

@@ -2,12 +2,16 @@ package com.project.digitalwallet.controller;
 
 import com.project.digitalwallet.common.util.ResponseWrapper;
 import com.project.digitalwallet.dto.*;
+import com.project.digitalwallet.mapper.UserMapper;
+import com.project.digitalwallet.security.UserPrincipal;
 import com.project.digitalwallet.service.AdminService;
+import com.project.digitalwallet.service.TransactionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 
@@ -18,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 public class AdminController {
 
     private final AdminService adminService;
+    private final TransactionService transactionService;
 
     @GetMapping("/dashboard/stats")
     public ResponseWrapper<AdminDashboardStatsDto> getDashboardStats() {
@@ -83,4 +88,32 @@ public class AdminController {
         );
     }
 
+    @PostMapping("/transaction/search")
+    public ResponseWrapper<Page<TransactionDto>> searchTransactions(
+            @RequestBody AdminTransactionSearchRequest request) {
+
+        Page<TransactionDto> results = transactionService.searchTransactionsForAdmin(request);
+        return new ResponseWrapper<>(
+                results,
+                "Transactions fetched successfully",
+                HttpStatus.OK.value(),
+                true
+        );
+    }
+
+    @PostMapping("/transaction/reverse")
+    public ResponseWrapper<TransactionDto> reverseTransaction(
+            @AuthenticationPrincipal UserPrincipal adminPrincipal,
+            @Valid @RequestBody AdminReverseTransactionRequest request) {
+
+        UserDto adminUserDto = UserMapper.toUserDto(adminPrincipal.getUser());
+        TransactionDto result = transactionService.reverseTransaction(adminUserDto, request);
+
+        return new ResponseWrapper<>(
+                result,
+                "Transaction reversed successfully.",
+                HttpStatus.OK.value(),
+                true
+        );
+    }
 }

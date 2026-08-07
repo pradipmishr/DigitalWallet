@@ -4,8 +4,10 @@ package com.project.digitalwallet.service.impl;
 import com.project.digitalwallet.common.enums.WalletStatus;
 import com.project.digitalwallet.dto.*;
 import com.project.digitalwallet.entity.AuditLog;
+import com.project.digitalwallet.entity.Transaction;
 import com.project.digitalwallet.entity.User;
 import com.project.digitalwallet.entity.Wallet;
+import com.project.digitalwallet.mapper.TransactionMapper;
 import com.project.digitalwallet.mapper.WalletMapper;
 import com.project.digitalwallet.repository.AuditLogRepository;
 import com.project.digitalwallet.repository.TransactionRepository;
@@ -13,6 +15,7 @@ import com.project.digitalwallet.repository.UserRepository;
 import com.project.digitalwallet.repository.WalletRepository;
 import com.project.digitalwallet.service.AdminService;
 import com.project.digitalwallet.service.AuditLogService;
+import jakarta.persistence.criteria.Predicate;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,12 +23,18 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.net.InetAddress;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.List;
+
 
 @Service
 @RequiredArgsConstructor
@@ -220,4 +229,5 @@ public class AdminServiceImpl implements AdminService {
                 httpServletRequest
         );
     }
+
 }
