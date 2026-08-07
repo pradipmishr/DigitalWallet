@@ -83,7 +83,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ExpiredJwtException.class)
     public ResponseEntity<ResponseWrapper<String>> handleJwtExpiredException(ExpiredJwtException ex) {
-        return ErrorResponse.buildErrorResponse(ex.getMessage(), HttpStatus.UNAUTHORIZED);
+        return ErrorResponse.buildErrorResponse("JWT is expired", HttpStatus.UNAUTHORIZED);
     }
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ResponseEntity<ResponseWrapper<String>> handleMethodNotSupported(

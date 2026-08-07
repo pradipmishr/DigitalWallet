@@ -10,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
+
 @Service
 @RequiredArgsConstructor
 public class OtpServiceImpl implements OtpService {
@@ -59,6 +61,23 @@ public class OtpServiceImpl implements OtpService {
 
         otp.setVerified(true);
         return true;
+    }
+    @Override
+    @Transactional
+    public void resendOtp(String email) {
+        // 1. Check if an OTP was recently generated to enforce a 60-second cooldown
+        Optional<Otp> existingOtp = otpRepository.findTopByEmailOrderByCreatedAtDesc(email);
+
+        if (existingOtp.isPresent()) {
+            Otp otp = existingOtp.get();
+            if (otp.getCreatedAt() != null &&
+                    otp.getCreatedAt().isAfter(LocalDateTime.now().minusSeconds(60))) {
+                throw new IllegalStateException("Please wait at least 60 seconds before requesting a new OTP.");
+            }
+        }
+
+        // 2. Reuse sendOtp logic (deletes old OTP, creates new code, saves, sends email)
+        sendOtp(email);
     }
 }
 

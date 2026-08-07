@@ -3,6 +3,7 @@ package com.project.digitalwallet.controller;
 import com.project.digitalwallet.common.util.ResponseWrapper;
 import com.project.digitalwallet.dto.*;
 import com.project.digitalwallet.service.AuthService;
+import com.project.digitalwallet.service.OtpService;
 import com.project.digitalwallet.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ public class AuthController {
 
     private final UserService userService;
     private final AuthService authService;
+    private final OtpService otpService;
 
     @PostMapping("/register")
     public ResponseWrapper<String> initiateRegistration(@Valid @RequestBody RegisterRequest registerRequest) {
@@ -41,6 +43,16 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseWrapper<LoginResponse> login(@RequestBody LoginRequest loginRequest){
         return new ResponseWrapper<>(authService.login(loginRequest),"Login Successful",HttpStatus.OK.value(), true);
+    }
+    @PostMapping("/resend-otp")
+    public ResponseWrapper<String> resendOtp(@Valid @RequestBody ResendOtpRequest request) {
+        otpService.resendOtp(request.getEmail());
+        return new ResponseWrapper<>(
+                "OTP resent successfully to " + request.getEmail(),
+                "OTP resent successfully",
+                HttpStatus.OK.value(),
+                true
+        );
     }
 
 }
