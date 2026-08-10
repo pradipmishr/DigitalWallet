@@ -24,16 +24,45 @@ public class NotificationEventListener {
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleWalletTransactionEvent(WalletTransactionEvent event) {
-        log.info("Processing notification event for User ID: {}", event.userId());
+        log.info("Processing notification event for User ID: {}, Type: {}", event.userId(), event.type());
 
-        String title = (event.type() == NotificationType.TRANSACTION_CREDIT)
-                ? "Money Received"
-                : "Money Sent";
+        String title;
+        String message;
 
-        String message = String.format("%s of %s was successful. Ref: %s",
-                title, event.amount(), event.referenceId());
+        // 1. Dynamically determine Title and Message based on NotificationType
+        switch (event.type()) {
+            case TRANSACTION_CREDIT:
+                title = "Money Received";
+                message = event.description() != null ? event.description()
+                        : String.format("Received %s %s. Ref: %s", event.currency(), event.amount(), event.referenceId());
+                break;
 
-        // 1. Save to Database
+            case TRANSACTION_DEBIT:
+                title = "Money Sent";
+                message = event.description() != null ? event.description()
+                        : String.format("Sent %s %s. Ref: %s", event.currency(), event.amount(), event.referenceId());
+                break;
+
+            case SECURITY_ALERT:
+                title = "Security Alert";
+                message = event.description() != null ? event.description()
+                        : "A security action was performed on your account.";
+                break;
+
+            case WELCOME:
+                title = "Welcome!";
+                message = event.description() != null ? event.description()
+                        : "Welcome to Digital Wallet!";
+                break;
+
+            default:
+                title = "Account Notification";
+                message = event.description() != null ? event.description()
+                        : "You have a new notification.";
+                break;
+        }
+
+        // 2. Save Notification Entity to Database
         Notification notification = Notification.builder()
                 .userId(event.userId())
                 .type(event.type())
@@ -45,7 +74,7 @@ public class NotificationEventListener {
 
         Notification savedNotification = notificationRepository.save(notification);
 
-        // 2. Map to DTO
+        // 3. Map to DTO
         NotificationDto dto = NotificationDto.builder()
                 .id(savedNotification.getId())
                 .type(savedNotification.getType())
@@ -58,13 +87,13 @@ public class NotificationEventListener {
 
         log.info("Sending STOMP message to userPhoneNumber: '{}' at /queue/notifications", event.userPhoneNumber());
 
-        // 3. Send to User
+        // 4. Push via STOMP / WebSocket
         messagingTemplate.convertAndSendToUser(
                 event.userPhoneNumber(),
                 "/queue/notifications",
                 dto
         );
 
-        log.info("STOMP message sent to messagingTemplate!");
+        log.info("STOMP message sent successfully to userPhoneNumber: {}", event.userPhoneNumber());
     }
 }

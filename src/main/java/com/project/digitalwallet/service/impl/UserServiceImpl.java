@@ -1,5 +1,7 @@
 package com.project.digitalwallet.service.impl;
 
+import com.project.digitalwallet.common.enums.NotificationType;
+import com.project.digitalwallet.common.util.WalletTransactionEvent;
 import com.project.digitalwallet.dto.*;
 import com.project.digitalwallet.entity.User;
 import com.project.digitalwallet.mapper.UserMapper;
@@ -9,9 +11,11 @@ import com.project.digitalwallet.service.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -29,7 +33,9 @@ public class UserServiceImpl implements UserService {
     private final OtpRepository otpRepository;
     private final AuditLogService auditLogService;
     private final HttpServletRequest httpServletRequest;
-    private final TransactionService transactionService;
+    //private final TransactionService transactionService;
+    private final ApplicationEventPublisher eventPublisher;
+
 
     private final Map<String, PinResetTokenInfo> pinResetTokenStore = new ConcurrentHashMap<>();
 
@@ -112,6 +118,15 @@ public class UserServiceImpl implements UserService {
         user.setTransactionPin(
                 passwordEncoder.encode(pin)
         );
+        eventPublisher.publishEvent(new WalletTransactionEvent(
+                user.getId(),
+                user.getPhoneNumber(),
+                NotificationType.SECURITY_ALERT, // or NotificationType.PIN_CHANGE / NotificationType.SYSTEM_ALERT
+                BigDecimal.ZERO,
+                "NPR",
+                "SEC-" + System.currentTimeMillis(), // Generated security reference number
+                "Your transaction PIN has been successfully set."
+        ));
 
         userRepository.save(user);
     }

@@ -10,6 +10,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
 
     <style>
+    .notification-card.security {
+    border-left-color: #ffc107; /* Yellow / Gold border for Security Alerts */
+}
         * {
             box-sizing: border-box;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -283,49 +286,56 @@
 }
 
     function displayNotification(notification, isLive = true) {
-        const feed = document.getElementById('notification-feed');
+    const feed = document.getElementById('notification-feed');
 
-        // Remove placeholder/error text if present
-        if (feed.querySelector('p')) {
-            feed.innerHTML = '';
-        }
-
-        // Prevent duplicates
-        const notifId = notification.id;
-        if (notifId && document.getElementById(`notif-${notifId}`)) {
-            return;
-        }
-
-        const card = document.createElement('div');
-        if (notifId) {
-            card.id = `notif-${notifId}`;
-        }
-
-        const isCredit = notification.type === 'TRANSACTION_CREDIT';
-        card.className = `notification-card ${isCredit ? '' : 'debit'}`;
-
-        // Handle camelCase / snake_case variations gracefully
-        const rawTime = notification.createdAt || notification.created_at || notification.timestamp;
-        const timeString = rawTime
-            ? new Date(rawTime).toLocaleTimeString()
-            : new Date().toLocaleTimeString();
-
-        const refId = notification.referenceId || notification.reference_id || 'N/A';
-        const title = notification.title || 'Notification';
-        const message = notification.message || '';
-
-        card.innerHTML = `
-            <div class="notification-title">${escapeHtml(title)}</div>
-            <div class="notification-body">${escapeHtml(message)}</div>
-            <div class="notification-meta">Ref: ${escapeHtml(refId)} • ${timeString}</div>
-        `;
-
-        if (isLive) {
-            feed.insertBefore(card, feed.firstChild);
-        } else {
-            feed.appendChild(card);
-        }
+    if (feed.querySelector('p')) {
+        feed.innerHTML = '';
     }
+
+    const notifId = notification.id;
+    if (notifId && document.getElementById(`notif-${notifId}`)) {
+        return;
+    }
+
+    const card = document.createElement('div');
+    if (notifId) {
+        card.id = `notif-${notifId}`;
+    }
+
+    // Determine card styling by type
+    const isCredit = notification.type === 'TRANSACTION_CREDIT';
+    const isDebit = notification.type === 'TRANSACTION_DEBIT';
+
+    // Apply debit class only if it's explicitly a DEBIT transaction
+    let cardClass = 'notification-card';
+    if (isDebit) {
+        cardClass += ' debit';
+    } else if (!isCredit) {
+        cardClass += ' security'; // Optional custom styling for security alerts
+    }
+    card.className = cardClass;
+
+    const rawTime = notification.createdAt || notification.created_at || notification.timestamp;
+    const timeString = rawTime
+        ? new Date(rawTime).toLocaleTimeString()
+        : new Date().toLocaleTimeString();
+
+    const refId = notification.referenceId || notification.reference_id || 'N/A';
+    const title = notification.title || 'Notification';
+    const message = notification.message || '';
+
+    card.innerHTML = `
+        <div class="notification-title">${escapeHtml(title)}</div>
+        <div class="notification-body">${escapeHtml(message)}</div>
+        <div class="notification-meta">Ref: ${escapeHtml(refId)} • ${timeString}</div>
+    `;
+
+    if (isLive) {
+        feed.insertBefore(card, feed.firstChild);
+    } else {
+        feed.appendChild(card);
+    }
+}
 
     function escapeHtml(text) {
         if (!text) return '';

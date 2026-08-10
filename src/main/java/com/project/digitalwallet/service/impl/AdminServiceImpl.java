@@ -1,7 +1,9 @@
 
 package com.project.digitalwallet.service.impl;
 
+import com.project.digitalwallet.common.enums.NotificationType;
 import com.project.digitalwallet.common.enums.WalletStatus;
+import com.project.digitalwallet.common.util.WalletTransactionEvent;
 import com.project.digitalwallet.dto.*;
 import com.project.digitalwallet.entity.AuditLog;
 import com.project.digitalwallet.entity.Transaction;
@@ -19,6 +21,7 @@ import jakarta.persistence.criteria.Predicate;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -47,6 +50,8 @@ public class AdminServiceImpl implements AdminService {
     private final AuditLogService auditLogService;
     private final HttpServletRequest httpServletRequest;
     private final PasswordEncoder passwordEncoder;
+    private final ApplicationEventPublisher eventPublisher;
+
     @Value("${wallet.default-daily-limit}")
     private BigDecimal globalDailyLimit;
     @Override
@@ -210,6 +215,15 @@ public class AdminServiceImpl implements AdminService {
                 String.format("Transaction PIN force-reset by admin for phone number: %s", request.getPhoneNumber()),
                 httpServletRequest
         );
+        eventPublisher.publishEvent(new WalletTransactionEvent(
+                user.getId(),
+                user.getPhoneNumber(),
+                NotificationType.SECURITY_ALERT, // or NotificationType.PIN_RESET / NotificationType.SYSTEM_ALERT
+                BigDecimal.ZERO,
+                "NPR",
+                "ADMIN-PIN-" + System.currentTimeMillis(),
+                "Your transaction PIN has been reset by an administrator. Please contact support if you did not request this."
+        ));
     }
     @Transactional
     @Override
@@ -228,6 +242,15 @@ public class AdminServiceImpl implements AdminService {
                 String.format("Account password force-changed by admin for phone number: %s", request.getPhoneNumber()),
                 httpServletRequest
         );
+        eventPublisher.publishEvent(new WalletTransactionEvent(
+                user.getId(),
+                user.getPhoneNumber(),
+                NotificationType.SECURITY_ALERT,
+                BigDecimal.ZERO,
+                "NPR",
+                "ADMIN-PWD-" + System.currentTimeMillis(),
+                "Your account password has been updated by an administrator. Please contact support immediately if you did not request this."
+        ));
     }
 
 }

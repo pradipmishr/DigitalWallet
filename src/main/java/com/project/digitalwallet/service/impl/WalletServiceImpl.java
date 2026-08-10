@@ -55,6 +55,16 @@ public class WalletServiceImpl implements WalletService {
         wallet.setUser(user);
 
         Wallet savedWallet = walletRepository.save(wallet);
+
+        eventPublisher.publishEvent(new WalletTransactionEvent(
+                user.getId(),
+                user.getPhoneNumber(),
+                NotificationType.WELCOME,
+                BigDecimal.ZERO,
+                "NPR",
+                savedWallet.getWalletNumber(),
+                "Welcome to Digital Wallet!"
+        ));
         return WalletMapper.toWalletDto(savedWallet);
     }
     @Transactional(readOnly = true)

@@ -1,5 +1,7 @@
 package com.project.digitalwallet.service.impl;
 
+import com.project.digitalwallet.common.enums.NotificationType;
+import com.project.digitalwallet.common.util.WalletTransactionEvent;
 import com.project.digitalwallet.dto.*;
 import com.project.digitalwallet.entity.User;
 import com.project.digitalwallet.mapper.UserMapper;
@@ -12,12 +14,14 @@ import com.project.digitalwallet.service.OtpService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
@@ -35,6 +39,8 @@ public class AuthServiceImpl implements AuthService {
     private final AuditLogService auditLogService;
     private final HttpServletRequest httpServletRequest;
     private final PasswordEncoder passwordEncoder;
+    private final ApplicationEventPublisher eventPublisher;
+
 
     // In-memory token store (Token -> ResetTokenInfo). For production clusters, persist this in DB or Redis.
     private final Map<String, ResetTokenInfo> resetTokenStore = new ConcurrentHashMap<>();
@@ -132,5 +138,14 @@ public class AuthServiceImpl implements AuthService {
                 "Password updated successfully using reset token.",
                 httpServletRequest
         );
+        eventPublisher.publishEvent(new WalletTransactionEvent(
+                user.getId(),
+                user.getPhoneNumber(),
+                NotificationType.SECURITY_ALERT, // or NotificationType.PASSWORD_RESET / NotificationType.SYSTEM_ALERT
+                BigDecimal.ZERO,
+                "NPR",
+                "PWD-" + System.currentTimeMillis(), // Unique security reference ID
+                "Your account password has been reset successfully. If you did not perform this action, contact support immediately."
+        ));
     }
 }

@@ -1,7 +1,9 @@
 package com.project.digitalwallet.service.impl;
 
+import com.project.digitalwallet.common.enums.NotificationType;
 import com.project.digitalwallet.common.enums.TransactionStatus;
 import com.project.digitalwallet.common.enums.TransactionType;
+import com.project.digitalwallet.common.util.WalletTransactionEvent;
 import com.project.digitalwallet.dto.*;
 import com.project.digitalwallet.entity.Transaction;
 import com.project.digitalwallet.entity.User;
@@ -15,6 +17,7 @@ import com.project.digitalwallet.service.TransactionService;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -43,6 +46,8 @@ public class TransactionServiceImpl implements TransactionService {
     private final WalletRepository walletRepository;
     private final AuditLogService auditLogService;
     private final HttpServletRequest httpServletRequest;
+    private final ApplicationEventPublisher eventPublisher;
+
 
     @Override
     public ByteArrayInputStream generateCsvStatement(Long userId, StatementRequest request) {
@@ -251,6 +256,31 @@ public class TransactionServiceImpl implements TransactionService {
                 String.format("Admin reversed Tx #%d (Amount: %s). Reason: %s", originalTx.getId(), amount, request.getReason()),
                 httpServletRequest
         );
+        if (senderWallet.getUser() != null) {
+            eventPublisher.publishEvent(new WalletTransactionEvent(
+                    senderWallet.getUser().getId(),
+                    senderWallet.getUser().getPhoneNumber(),
+                    NotificationType.TRANSACTION_CREDIT,
+                    amount,
+                    "NPR",
+                    savedReversal.getReferenceNumber(),
+                    String.format("Refund for reversed Tx #%s. Reason: %s",
+                            originalTx.getReferenceNumber(), request.getReason())
+            ));
+        }
+
+        if (receiverWallet.getUser() != null) {
+            eventPublisher.publishEvent(new WalletTransactionEvent(
+                    receiverWallet.getUser().getId(),
+                    receiverWallet.getUser().getPhoneNumber(),
+                    NotificationType.TRANSACTION_DEBIT,
+                    amount,
+                    "NPR",
+                    savedReversal.getReferenceNumber(),
+                    String.format("Clawback for reversed Tx #%s. Reason: %s",
+                            originalTx.getReferenceNumber(), request.getReason())
+            ));
+        }
 
         return TransactionMapper.toTransactionDto(savedReversal);
     }
