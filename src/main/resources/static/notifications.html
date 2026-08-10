@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Real-Time Notifications Test</title>
 
-    <!-- STOMP.js Library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <!-- SockJS and STOMP Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+
     <style>
         * {
             box-sizing: border-box;
@@ -144,7 +144,6 @@
             to { opacity: 1; transform: translateY(0); }
         }
     </style>
-
 </head>
 <body>
 
@@ -162,9 +161,9 @@
 </div>
 
 <div class="card">
-    <h2>🔔 Live Notification Feed</h2>
+    <h2>🔔 Notification Feed</h2>
     <div id="notification-feed">
-        <p style="color: #888; font-style: italic;">No notifications received yet. Connect above and trigger a deposit/transfer.</p>
+        <p style="color: #888; font-style: italic;">No notifications received yet. Connect above to load notifications.</p>
     </div>
 </div>
 
@@ -186,33 +185,34 @@
 
         console.log('Cleaned Token Length:', token.length);
 
-        // 1. Use SockJS endpoint matching Spring's .withSockJS() configuration
+        // 1. SockJS Endpoint
         const socket = new SockJS('http://localhost:8080/api/ws-notifications');
-    stompClient = Stomp.over(socket);
+        stompClient = Stomp.over(socket);
 
-        // Optional: reduce console noise or enable full debug logs
         stompClient.debug = function(str) {
             console.log('STOMP Debug:', str);
         };
 
-        // 2. Pass JWT Bearer Token in STOMP headers
         const headers = {
             'Authorization': 'Bearer ' + token
         };
 
         stompClient.connect(headers, function (frame) {
             updateStatus(true);
-            console.log('✅ Connected to STOMP:', frame);
+            console.log(' Connected to STOMP:', frame);
 
-            // Subscribe to user-specific notification queue
+            // 2. Fetch past notifications via REST API
+            loadPastNotifications(token);
+
+            // 3. Subscribe to real-time pushes
             stompClient.subscribe('/user/queue/notifications', function (messageOutput) {
                 const notification = JSON.parse(messageOutput.body);
-                console.log('🔔 Notification Received:', notification);
-                displayNotification(notification);
+                console.log(' Live Notification Received:', notification);
+                displayNotification(notification, true);
             });
 
         }, function (error) {
-            console.error('❌ STOMP Connection Error:', error);
+            console.error(' STOMP Connection Error:', error);
             updateStatus(false);
             alert('Connection failed. Check browser Console (F12) and backend logs.');
         });
@@ -244,28 +244,87 @@
         }
     }
 
-    function displayNotification(notification) {
+    function loadPastNotifications(token) {
+    fetch('http://localhost:8080/api/notifications', {
+        method: 'GET',
+        headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            console.error(`HTTP status ${response.status}: Failed to fetch notifications`);
+            throw new Error(`HTTP status ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log(' Fetched past notifications:', data);
+        const feed = document.getElementById('notification-feed');
+        feed.innerHTML = '';
+
+        // Extract array whether backend returns direct List (data) or Page (data.content)
+        const notificationsList = Array.isArray(data) ? data : (data.content || []);
+
+        if (notificationsList.length > 0) {
+            notificationsList.forEach(notification => {
+                displayNotification(notification, false); // false = append past items
+            });
+        } else {
+            feed.innerHTML = '<p style="color: #888; font-style: italic;">No notifications found.</p>';
+        }
+    })
+    .catch(err => {
+        console.error(' Error fetching past notifications:', err);
+        const feed = document.getElementById('notification-feed');
+        feed.innerHTML = `<p style="color: #dc3545;">Failed to load past notifications: ${err.message}</p>`;
+    });
+}
+
+    function displayNotification(notification, isLive = true) {
         const feed = document.getElementById('notification-feed');
 
+        // Remove placeholder/error text if present
         if (feed.querySelector('p')) {
             feed.innerHTML = '';
         }
 
+        // Prevent duplicates
+        const notifId = notification.id;
+        if (notifId && document.getElementById(`notif-${notifId}`)) {
+            return;
+        }
+
         const card = document.createElement('div');
+        if (notifId) {
+            card.id = `notif-${notifId}`;
+        }
+
         const isCredit = notification.type === 'TRANSACTION_CREDIT';
         card.className = `notification-card ${isCredit ? '' : 'debit'}`;
 
-        const timeString = notification.createdAt
-            ? new Date(notification.createdAt).toLocaleTimeString()
+        // Handle camelCase / snake_case variations gracefully
+        const rawTime = notification.createdAt || notification.created_at || notification.timestamp;
+        const timeString = rawTime
+            ? new Date(rawTime).toLocaleTimeString()
             : new Date().toLocaleTimeString();
 
+        const refId = notification.referenceId || notification.reference_id || 'N/A';
+        const title = notification.title || 'Notification';
+        const message = notification.message || '';
+
         card.innerHTML = `
-            <div class="notification-title">${escapeHtml(notification.title)}</div>
-            <div class="notification-body">${escapeHtml(notification.message)}</div>
-            <div class="notification-meta">Ref: ${escapeHtml(notification.referenceId || 'N/A')} • ${timeString}</div>
+            <div class="notification-title">${escapeHtml(title)}</div>
+            <div class="notification-body">${escapeHtml(message)}</div>
+            <div class="notification-meta">Ref: ${escapeHtml(refId)} • ${timeString}</div>
         `;
 
-        feed.insertBefore(card, feed.firstChild);
+        if (isLive) {
+            feed.insertBefore(card, feed.firstChild);
+        } else {
+            feed.appendChild(card);
+        }
     }
 
     function escapeHtml(text) {

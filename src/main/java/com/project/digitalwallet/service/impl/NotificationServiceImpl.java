@@ -24,44 +24,44 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<NotificationDto> getUserNotifications(String email, Pageable pageable) {
-        User user = getUserByEmail(email);
+    public Page<NotificationDto> getUserNotifications(String phoneNumber, Pageable pageable) {
+        User user = getUserByPhoneNumber(phoneNumber);
         return notificationRepository.findByUserIdOrderByCreatedAtDesc(user.getId(), pageable)
                 .map(NotificationMapper::mapToDto);
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public long getUnreadCount(String email) {
-        User user = getUserByEmail(email);
-        return notificationRepository.countByUserIdAndReadFalse(user.getId());
-    }
+//    @Override
+//    @Transactional(readOnly = true)
+//    public long getUnreadCount(String email) {
+//        User user = getUserByEmail(email);
+//        return notificationRepository.countByUserIdAndReadFalse(user.getId());
+//    }
+//
+//    @Override
+//    @Transactional
+//    public void markAsRead(Long notificationId, String email) {
+//        User user = getUserByEmail(email);
+//        Notification notification = notificationRepository.findById(notificationId)
+//                .orElseThrow(() -> new EntityNotFoundException("Notification not found: " + notificationId));
+//
+//        if (!notification.getUserId().equals(user.getId())) {
+//            throw new IllegalArgumentException("Unauthorized to update this notification.");
+//        }
+//
+//        notification.setRead(true);
+//        notificationRepository.save(notification);
+//    }
 
-    @Override
-    @Transactional
-    public void markAsRead(Long notificationId, String email) {
-        User user = getUserByEmail(email);
-        Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new EntityNotFoundException("Notification not found: " + notificationId));
+//    @Override
+//    @Transactional
+//    public void markAllAsRead(String email) {
+//        User user = getUserByEmail(email);
+//        notificationRepository.markAllAsReadForUser(user.getId());
+//    }
 
-        if (!notification.getUserId().equals(user.getId())) {
-            throw new IllegalArgumentException("Unauthorized to update this notification.");
-        }
-
-        notification.setRead(true);
-        notificationRepository.save(notification);
-    }
-
-    @Override
-    @Transactional
-    public void markAllAsRead(String email) {
-        User user = getUserByEmail(email);
-        notificationRepository.markAllAsReadForUser(user.getId());
-    }
-
-    private User getUserByEmail(String email) {
-        return userRepository.findByEmail(email)
-                .orElseThrow(() -> new EntityNotFoundException("User not found: " + email));
+    private User getUserByPhoneNumber(String phoneNumber) {
+        return userRepository.findByPhoneNumber(phoneNumber)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + phoneNumber));
     }
 
 
