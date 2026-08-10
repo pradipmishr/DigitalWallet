@@ -1,6 +1,7 @@
 package com.project.digitalwallet.controller;
 
 import com.project.digitalwallet.common.util.ResponseWrapper;
+import com.project.digitalwallet.dto.CancelScheduledPaymentRequest;
 import com.project.digitalwallet.dto.CreateScheduledPaymentRequest;
 import com.project.digitalwallet.dto.ScheduledPaymentDto;
 import com.project.digitalwallet.security.UserPrincipal;
@@ -9,7 +10,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,7 +17,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/scheduled-payments")
-@PreAuthorize("hasRole('USER')")
 @RequiredArgsConstructor
 public class ScheduledPaymentController {
 
@@ -59,9 +58,10 @@ public class ScheduledPaymentController {
     @PatchMapping("/{id}/cancel")
     public ResponseEntity<ResponseWrapper<Void>> cancelSchedule(
             @AuthenticationPrincipal UserPrincipal userPrincipal,
-            @PathVariable Long id) {
+            @PathVariable Long id,
+            @Valid @RequestBody CancelScheduledPaymentRequest request) {
 
-        scheduledPaymentService.cancelSchedule(userPrincipal.getUser().getId(), id);
+        scheduledPaymentService.cancelSchedule(userPrincipal.getUser().getId(), id, request);
 
         ResponseWrapper<Void> response = new ResponseWrapper<>(
                 null,

@@ -2,6 +2,7 @@ package com.project.digitalwallet.service.impl;
 
 
 import com.project.digitalwallet.common.enums.ScheduledPaymentStatus;
+import com.project.digitalwallet.dto.CancelScheduledPaymentRequest;
 import com.project.digitalwallet.dto.ScheduledPaymentDto;
 import com.project.digitalwallet.dto.CreateScheduledPaymentRequest;
 import com.project.digitalwallet.entity.ScheduledPayment;
@@ -11,6 +12,7 @@ import com.project.digitalwallet.repository.ScheduledPaymentRepository;
 import com.project.digitalwallet.repository.UserRepository;
 import com.project.digitalwallet.service.ScheduledPaymentService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +27,7 @@ public class ScheduledPaymentServiceImpl implements ScheduledPaymentService {
 
     private final ScheduledPaymentRepository scheduledPaymentRepository;
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     @Transactional
@@ -65,7 +68,13 @@ public class ScheduledPaymentServiceImpl implements ScheduledPaymentService {
 
     @Override
     @Transactional
-    public void cancelSchedule(Long userId, Long scheduleId) {
+    public void cancelSchedule(Long userId, Long scheduleId, CancelScheduledPaymentRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found with ID: " + userId));
+
+        // 1. Verify Transaction PIN
+        validateTransactionPin(user, request.getPin());
+
         ScheduledPayment schedule = scheduledPaymentRepository.findById(scheduleId)
                 .orElseThrow(() -> new IllegalArgumentException("Schedule not found with ID: " + scheduleId));
 
@@ -73,8 +82,20 @@ public class ScheduledPaymentServiceImpl implements ScheduledPaymentService {
             throw new IllegalStateException("Unauthorized to cancel this schedule.");
         }
 
+        if (schedule.getStatus() == ScheduledPaymentStatus.CANCELLED) {
+            throw new IllegalStateException("Schedule is already cancelled.");
+        }
+
         schedule.setStatus(ScheduledPaymentStatus.CANCELLED);
         scheduledPaymentRepository.save(schedule);
+    }
+    private void validateTransactionPin(User user, String rawPin) {
+        if (user.getTransactionPin() == null) {
+            throw new IllegalStateException("Transaction PIN is not set. Please set a transaction PIN first.");
+        }
+        if (!passwordEncoder.matches(rawPin, user.getTransactionPin())) {
+            throw new IllegalArgumentException("Invalid transaction PIN.");
+        }
     }
 
 

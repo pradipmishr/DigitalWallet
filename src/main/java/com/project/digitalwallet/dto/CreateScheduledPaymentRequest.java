@@ -27,4 +27,8 @@ public class CreateScheduledPaymentRequest {
     private Integer totalOccurrences; // Optional
 
     private String description;
+
+    @NotBlank(message = "Transaction PIN is required")
+    @Pattern(regexp = "^\\d{4}$", message = "Transaction PIN must be exactly 4 digits")
+    private String pin;
 }
