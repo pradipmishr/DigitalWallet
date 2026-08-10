@@ -1,5 +1,7 @@
 package com.project.digitalwallet.service.impl;
 
+import com.project.digitalwallet.common.enums.NotificationType;
+import com.project.digitalwallet.common.util.WalletTransactionEvent;
 import com.project.digitalwallet.dto.*;
 import com.project.digitalwallet.entity.Transaction;
 import com.project.digitalwallet.entity.User;
@@ -16,6 +18,7 @@ import com.project.digitalwallet.service.WalletService;
 import com.project.digitalwallet.common.util.WalletNumberGenerator;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +40,7 @@ public class WalletServiceImpl implements WalletService {
     private final AuditLogService auditLogService;
     private final HttpServletRequest httpServletRequest;
     private final AdminService adminService;
+    private final ApplicationEventPublisher eventPublisher;
 
 
     @Override
@@ -88,6 +92,17 @@ public class WalletServiceImpl implements WalletService {
                 String.format("Deposited %s into wallet.", request.getAmount()),
                 httpServletRequest
         );
+
+        // Publish notification event (will fire asynchronously AFTER database commit)
+        eventPublisher.publishEvent(new WalletTransactionEvent(
+                user.getId(),
+                user.getPhoneNumber(),
+                NotificationType.TRANSACTION_CREDIT,
+                request.getAmount(),
+                "NPR", // Replace with your default wallet currency or wallet.getCurrency() if available
+                savedTransaction.getReferenceNumber(),
+                request.getDescription() != null ? request.getDescription() : "Deposit to wallet"
+        ));
 
         return TransactionMapper.toTransactionDto(savedTransaction);
     }
@@ -160,6 +175,27 @@ public class WalletServiceImpl implements WalletService {
                 String.format("Transferred %s to phone %s", request.getAmount(), request.getRecipientPhoneNumber()),
                 httpServletRequest
         );
+        // Publish Notification Event for Sender (Debit)
+        eventPublisher.publishEvent(new WalletTransactionEvent(
+                senderUser.getId(),
+                senderUser.getPhoneNumber(),
+                NotificationType.TRANSACTION_DEBIT,
+                request.getAmount(),
+                "NPR",
+                savedTransaction.getReferenceNumber(),
+                request.getDescription() != null ? request.getDescription() : "Transfer to " + recipientUser.getPhoneNumber()
+        ));
+
+        // Publish Notification Event for Recipient (Credit)
+        eventPublisher.publishEvent(new WalletTransactionEvent(
+                recipientUser.getId(),
+                recipientUser.getPhoneNumber(),
+                NotificationType.TRANSACTION_CREDIT,
+                request.getAmount(),
+                "NPR",
+                savedTransaction.getReferenceNumber(),
+                request.getDescription() != null ? request.getDescription() : "Received money from " + senderUser.getPhoneNumber()
+        ));
 
         return TransactionMapper.toTransactionDto(savedTransaction);
     }

@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Notifications Test</title>
+
+    <!-- STOMP.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f4f6f9;
+            padding: 30px;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            margin-top: 0;
+            color: #1a1a1a;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        textarea {
+            width: 100%;
+            height: 80px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 13px;
+            word-break: break-all;
+        }
+
+        .btn {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn:hover {
+            background-color: #0056b3;
+        }
+
+        .btn-disconnect {
+            background-color: #dc3545;
+            display: none;
+        }
+
+        .btn-disconnect:hover {
+            background-color: #a71d2a;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: bold;
+            background-color: #e2e3e5;
+            color: #383d41;
+            margin-bottom: 15px;
+        }
+
+        .status-badge.connected {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .status-badge.disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        #notification-feed {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .notification-card {
+            background: #ffffff;
+            border-left: 5px solid #28a745;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .notification-card.debit {
+            border-left-color: #dc3545;
+        }
+
+        .notification-title {
+            font-weight: bold;
+            font-size: 16px;
+            color: #2c3e50;
+            margin-bottom: 4px;
+        }
+
+        .notification-body {
+            color: #555;
+            font-size: 14px;
+        }
+
+        .notification-meta {
+            font-size: 11px;
+            color: #888;
+            margin-top: 8px;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+
+</head>
+<body>
+
+<div class="card">
+    <h2>🔌 Digital Wallet Live Notifications</h2>
+    <div id="status" class="status-badge disconnected">Disconnected</div>
+
+    <div class="form-group">
+        <label for="jwtToken">Paste Bearer JWT Token:</label>
+        <textarea id="jwtToken" placeholder="eyJhbGciOiJIUzUxMiJ9..."></textarea>
+    </div>
+
+    <button id="connectBtn" class="btn" onclick="connectWebSocket()">Connect to WebSocket</button>
+    <button id="disconnectBtn" class="btn btn-disconnect" onclick="disconnectWebSocket()">Disconnect</button>
+</div>
+
+<div class="card">
+    <h2>🔔 Live Notification Feed</h2>
+    <div id="notification-feed">
+        <p style="color: #888; font-style: italic;">No notifications received yet. Connect above and trigger a deposit/transfer.</p>
+    </div>
+</div>
+
+<script>
+    let stompClient = null;
+
+    function connectWebSocket() {
+        let rawInput = document.getElementById('jwtToken').value;
+
+        if (!rawInput || !rawInput.trim()) {
+            alert('Please paste your JWT Token first!');
+            return;
+        }
+
+        let token = rawInput.trim().replace(/^["']|["']$/g, '');
+        if (token.toLowerCase().startsWith('bearer ')) {
+            token = token.substring(7).trim();
+        }
+
+        console.log('Cleaned Token Length:', token.length);
+
+        // 1. Use SockJS endpoint matching Spring's .withSockJS() configuration
+        const socket = new SockJS('http://localhost:8080/api/ws-notifications');
+    stompClient = Stomp.over(socket);
+
+        // Optional: reduce console noise or enable full debug logs
+        stompClient.debug = function(str) {
+            console.log('STOMP Debug:', str);
+        };
+
+        // 2. Pass JWT Bearer Token in STOMP headers
+        const headers = {
+            'Authorization': 'Bearer ' + token
+        };
+
+        stompClient.connect(headers, function (frame) {
+            updateStatus(true);
+            console.log('✅ Connected to STOMP:', frame);
+
+            // Subscribe to user-specific notification queue
+            stompClient.subscribe('/user/queue/notifications', function (messageOutput) {
+                const notification = JSON.parse(messageOutput.body);
+                console.log('🔔 Notification Received:', notification);
+                displayNotification(notification);
+            });
+
+        }, function (error) {
+            console.error('❌ STOMP Connection Error:', error);
+            updateStatus(false);
+            alert('Connection failed. Check browser Console (F12) and backend logs.');
+        });
+    }
+
+    function disconnectWebSocket() {
+        if (stompClient !== null) {
+            stompClient.disconnect();
+        }
+        updateStatus(false);
+        console.log('Disconnected');
+    }
+
+    function updateStatus(isConnected) {
+        const statusBadge = document.getElementById('status');
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+
+        if (isConnected) {
+            statusBadge.textContent = 'Connected';
+            statusBadge.className = 'status-badge connected';
+            connectBtn.style.display = 'none';
+            disconnectBtn.style.display = 'inline-block';
+        } else {
+            statusBadge.textContent = 'Disconnected';
+            statusBadge.className = 'status-badge disconnected';
+            connectBtn.style.display = 'inline-block';
+            disconnectBtn.style.display = 'none';
+        }
+    }
+
+    function displayNotification(notification) {
+        const feed = document.getElementById('notification-feed');
+
+        if (feed.querySelector('p')) {
+            feed.innerHTML = '';
+        }
+
+        const card = document.createElement('div');
+        const isCredit = notification.type === 'TRANSACTION_CREDIT';
+        card.className = `notification-card ${isCredit ? '' : 'debit'}`;
+
+        const timeString = notification.createdAt
+            ? new Date(notification.createdAt).toLocaleTimeString()
+            : new Date().toLocaleTimeString();
+
+        card.innerHTML = `
+            <div class="notification-title">${escapeHtml(notification.title)}</div>
+            <div class="notification-body">${escapeHtml(notification.message)}</div>
+            <div class="notification-meta">Ref: ${escapeHtml(notification.referenceId || 'N/A')} • ${timeString}</div>
+        `;
+
+        feed.insertBefore(card, feed.firstChild);
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        return text.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+</script>
+</body>
+</html>
