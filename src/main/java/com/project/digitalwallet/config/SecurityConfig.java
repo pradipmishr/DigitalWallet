@@ -45,6 +45,7 @@ public class SecurityConfig {
                         .requestMatchers("/ws-notifications/**").permitAll() // Permit Handshake GET
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .requestMatchers("/user/**").hasRole("USER")
+                        .requestMatchers("/scheduled-payments/**").hasRole("USER")
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session ->
