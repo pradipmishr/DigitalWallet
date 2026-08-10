@@ -109,7 +109,7 @@ public class WalletServiceImpl implements WalletService {
                 user.getPhoneNumber(),
                 NotificationType.TRANSACTION_CREDIT,
                 request.getAmount(),
-                "NPR", // Replace with your default wallet currency or wallet.getCurrency() if available
+                "NPR",
                 savedTransaction.getReferenceNumber(),
                 request.getDescription() != null ? request.getDescription() : "Deposit to wallet"
         ));
