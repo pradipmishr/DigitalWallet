@@ -1,4 +1,8 @@
 package com.project.digitalwallet.common.enums;
 
-public class RequestMoneyStatus {
+public enum RequestMoneyStatus {
+    PENDING,
+    COMPLETED,
+    DECLINED,
+    CANCELLED
 }

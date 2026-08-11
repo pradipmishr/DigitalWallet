@@ -4,7 +4,6 @@ import com.project.digitalwallet.common.util.ResponseWrapper;
 import com.project.digitalwallet.dto.KycStatusResponse;
 import com.project.digitalwallet.dto.SubmitKycRequest;
 import com.project.digitalwallet.security.UserPrincipal;
-import com.project.digitalwallet.service.FileStorageService;
 import com.project.digitalwallet.service.KycService;
 import com.project.digitalwallet.service.impl.OcrExtractionService;
 import jakarta.validation.Valid;
