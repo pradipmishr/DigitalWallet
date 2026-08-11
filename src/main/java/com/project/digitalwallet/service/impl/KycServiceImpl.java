@@ -1,0 +1,137 @@
+package com.project.digitalwallet.service.impl;
+
+import com.project.digitalwallet.common.enums.KycStatus;
+import com.project.digitalwallet.common.exception.ResourceNotFoundException;
+import com.project.digitalwallet.dto.KycStatusResponse;
+import com.project.digitalwallet.dto.ReviewKycRequest;
+import com.project.digitalwallet.dto.SubmitKycRequest;
+import com.project.digitalwallet.entity.KycDetails;
+import com.project.digitalwallet.entity.User;
+import com.project.digitalwallet.mapper.KycMapper;
+import com.project.digitalwallet.repository.KycDetailsRepository;
+import com.project.digitalwallet.repository.UserRepository;
+import com.project.digitalwallet.service.FileStorageService;
+import com.project.digitalwallet.service.KycService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.time.LocalDate;
+
+import static com.project.digitalwallet.mapper.KycMapper.mapToKycStatusResponse;
+
+@Service
+@RequiredArgsConstructor
+public class KycServiceImpl implements KycService {
+
+    private final KycDetailsRepository kycDetailsRepository;
+    private final UserRepository userRepository;
+    private final FileStorageService fileStorageService;
+
+
+    @Override
+    @Transactional
+    public KycStatusResponse submitKyc(Long userId, SubmitKycRequest request, MultipartFile frontImage) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found with ID: " + userId));
+
+        if (frontImage == null || frontImage.isEmpty()) {
+            throw new IllegalArgumentException("Front image of document is required.");
+        }
+
+        KycDetails kycDetails = kycDetailsRepository.findByUserId(userId)
+                .orElse(KycDetails.builder().user(user).build());
+
+        if (kycDetails.getStatus() == KycStatus.VERIFIED) {
+            throw new IllegalStateException("Your account is already verified.");
+        }
+
+        // Store file uploads on disk under "kyc-documents"
+        String frontPath = fileStorageService.storeFile(frontImage, "kyc-documents");
+
+        kycDetails.setDocumentType(request.getDocumentType());
+        kycDetails.setDocumentNumber(request.getDocumentNumber());
+        kycDetails.setIssueDate(request.getIssueDate());
+        kycDetails.setDateOfBirth(request.getDateOfBirth());
+        kycDetails.setFrontImagePath(frontPath);
+        kycDetails.setStatus(KycStatus.PENDING);
+        kycDetails.setAdminRemarks(null);
+
+        KycDetails saved = kycDetailsRepository.save(kycDetails);
+        return mapToResponse(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public KycStatusResponse getKycStatus(Long userId) {
+        return kycDetailsRepository.findByUserId(userId)
+                .map(this::mapToResponse)
+                .orElseGet(() -> KycStatusResponse.builder()
+                        .status(KycStatus.UNVERIFIED)
+                        .build());
+    }
+
+    @Override
+    @Transactional
+    public KycStatusResponse reviewKyc(Long kycId, ReviewKycRequest request) {
+        KycDetails kyc = kycDetailsRepository.findById(kycId)
+                .orElseThrow(() -> new IllegalArgumentException("KYC record not found with ID: " + kycId));
+
+        if (request.getStatus() != KycStatus.VERIFIED && request.getStatus() != KycStatus.REJECTED) {
+            throw new IllegalArgumentException("Review status must be either VERIFIED or REJECTED.");
+        }
+
+        kyc.setStatus(request.getStatus());
+        kyc.setAdminRemarks(request.getAdminRemarks());
+
+        if (request.getStatus() == KycStatus.VERIFIED) {
+            kyc.setVerifiedAt(LocalDate.now());
+        }
+
+        KycDetails saved = kycDetailsRepository.save(kyc);
+        return mapToResponse(saved);
+    }
+
+    private KycStatusResponse mapToResponse(KycDetails entity) {
+        String frontUrl = entity.getFrontImagePath() != null
+                ? "/api/kyc/files/" + entity.getFrontImagePath()
+                : null;
+
+
+        return KycStatusResponse.builder()
+                .id(entity.getId())
+                .status(entity.getStatus())
+                .documentType(entity.getDocumentType())
+                .documentNumber(entity.getDocumentNumber())
+                .issueDate(entity.getIssueDate())
+                .dateOfBirth(entity.getDateOfBirth())
+                .frontImageUrl(frontUrl)
+                .adminRemarks(entity.getAdminRemarks())
+                .verifiedAt(entity.getVerifiedAt())
+                .build();
+    }
+    @Override
+    @Transactional(readOnly = true)
+    public Page<KycStatusResponse> getAllKycs(KycStatus status, Pageable pageable) {
+        Page<KycDetails> kycPage;
+
+        if (status != null) {
+            kycPage = kycDetailsRepository.findByStatus(status, pageable);
+        } else {
+            kycPage = kycDetailsRepository.findAll(pageable);
+        }
+
+        return kycPage.map(KycMapper::mapToKycStatusResponse);
+    }
+    @Override
+    @Transactional(readOnly = true)
+    public KycStatusResponse getKycById(Long id) {
+        KycDetails kyc = kycDetailsRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("KYC record not found with id: " + id));
+
+        return mapToKycStatusResponse(kyc);
+    }
+}

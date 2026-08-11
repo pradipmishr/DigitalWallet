@@ -1,15 +1,21 @@
 package com.project.digitalwallet.controller;
 
+import com.project.digitalwallet.common.enums.KycStatus;
 import com.project.digitalwallet.common.util.ResponseWrapper;
 import com.project.digitalwallet.dto.*;
 import com.project.digitalwallet.mapper.UserMapper;
 import com.project.digitalwallet.security.UserPrincipal;
 import com.project.digitalwallet.service.AdminService;
+import com.project.digitalwallet.service.KycService;
 import com.project.digitalwallet.service.TransactionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -23,6 +29,7 @@ public class AdminController {
 
     private final AdminService adminService;
     private final TransactionService transactionService;
+    private final KycService kycService;
 
     @GetMapping("/dashboard/stats")
     public ResponseWrapper<AdminDashboardStatsDto> getDashboardStats() {
@@ -116,4 +123,50 @@ public class AdminController {
                 true
         );
     }
+    @GetMapping("/kyc")
+    public ResponseEntity<ResponseWrapper<Page<KycStatusResponse>>> getAllKycs(
+            @RequestParam(required = false) KycStatus status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "DESC") String sortDir) {
+
+        Sort sort = sortDir.equalsIgnoreCase("ASC") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<KycStatusResponse> response = kycService.getAllKycs(status, pageable);
+
+        return ResponseEntity.ok(new ResponseWrapper<>(
+                response,
+                "KYC list retrieved successfully.",
+                HttpStatus.OK.value(),
+                true
+        ));
+    }
+    @GetMapping("/kyc/{id}")
+    public ResponseEntity<ResponseWrapper<KycStatusResponse>> getKycById(@PathVariable("id") Long id) {
+        KycStatusResponse response = kycService.getKycById(id);
+
+        return ResponseEntity.ok(new ResponseWrapper<>(
+                response,
+                "KYC record retrieved successfully.",
+                HttpStatus.OK.value(),
+                true
+        ));
+    }
+    @PatchMapping("/kyc/{kycId}/review")
+    public ResponseEntity<ResponseWrapper<KycStatusResponse>> reviewKyc(
+            @PathVariable Long kycId,
+            @Valid @RequestBody ReviewKycRequest request) {
+
+        KycStatusResponse response = kycService.reviewKyc(kycId, request);
+
+        return ResponseEntity.ok(new ResponseWrapper<>(
+                response,
+                "KYC application reviewed successfully.",
+                HttpStatus.OK.value(),
+                true
+        ));
+    }
+
 }

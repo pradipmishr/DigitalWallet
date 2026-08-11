@@ -50,17 +50,10 @@ public class JwtUtil {
                 .compact();
     }
 
-//    private Claims extractAllClaims(String token) {
-//        return Jwts.parser()
-//                .verifyWith(key)
-//                .build()
-//                .parseSignedClaims(token)
-//                .getPayload();
-//    }
     private Claims extractAllClaims(String token) {
         return Jwts.parser()
                 .verifyWith(key)
-                .clockSkewSeconds(604800) // 7 days tolerance for clock skew
+               // .clockSkewSeconds(604800) // 7 days tolerance for clock skew
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();

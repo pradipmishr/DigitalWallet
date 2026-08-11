@@ -46,6 +46,7 @@ public class SecurityConfig {
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .requestMatchers("/user/**").hasRole("USER")
                         .requestMatchers("/scheduled-payments/**").hasRole("USER")
+                        .requestMatchers("/kyc/**").hasRole("USER")
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session ->
