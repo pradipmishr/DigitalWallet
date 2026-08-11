@@ -10,8 +10,10 @@ import com.project.digitalwallet.entity.User;
 import com.project.digitalwallet.mapper.KycMapper;
 import com.project.digitalwallet.repository.KycDetailsRepository;
 import com.project.digitalwallet.repository.UserRepository;
+import com.project.digitalwallet.service.AuditLogService;
 import com.project.digitalwallet.service.FileStorageService;
 import com.project.digitalwallet.service.KycService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -30,6 +32,8 @@ public class KycServiceImpl implements KycService {
     private final KycDetailsRepository kycDetailsRepository;
     private final UserRepository userRepository;
     private final FileStorageService fileStorageService;
+    private final AuditLogService auditLogService;
+    private final HttpServletRequest httpServletRequest;
 
 
     @Override
@@ -61,6 +65,13 @@ public class KycServiceImpl implements KycService {
         kycDetails.setAdminRemarks(null);
 
         KycDetails saved = kycDetailsRepository.save(kycDetails);
+        auditLogService.logEvent(
+                user.getId(),
+                "KYC_SUBMITTED",
+                String.format("KYC submitted for review. Type: %s, Number: %s",
+                        request.getDocumentType(), request.getDocumentNumber()),
+                httpServletRequest
+        );
         return mapToResponse(saved);
     }
 
@@ -92,6 +103,18 @@ public class KycServiceImpl implements KycService {
         }
 
         KycDetails saved = kycDetailsRepository.save(kyc);
+        String eventType = request.getStatus() == KycStatus.VERIFIED ? "KYC_VERIFIED" : "KYC_REJECTED";
+        String description = String.format("KYC (ID: %d) status updated to %s. Admin Remarks: %s",
+                kycId,
+                request.getStatus(),
+                request.getAdminRemarks() != null ? request.getAdminRemarks() : "None");
+
+        auditLogService.logEvent(
+                kyc.getUser().getId(),
+                eventType,
+                description,
+                httpServletRequest
+        );
         return mapToResponse(saved);
     }
 

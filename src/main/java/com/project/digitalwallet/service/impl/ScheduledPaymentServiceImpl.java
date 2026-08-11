@@ -10,7 +10,9 @@ import com.project.digitalwallet.entity.User;
 import com.project.digitalwallet.mapper.ScheduleMapper;
 import com.project.digitalwallet.repository.ScheduledPaymentRepository;
 import com.project.digitalwallet.repository.UserRepository;
+import com.project.digitalwallet.service.AuditLogService;
 import com.project.digitalwallet.service.ScheduledPaymentService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -28,6 +30,8 @@ public class ScheduledPaymentServiceImpl implements ScheduledPaymentService {
     private final ScheduledPaymentRepository scheduledPaymentRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuditLogService auditLogService;
+    private final HttpServletRequest httpServletRequest;
 
     @Override
     @Transactional
@@ -54,6 +58,13 @@ public class ScheduledPaymentServiceImpl implements ScheduledPaymentService {
                 .build();
 
         ScheduledPayment saved = scheduledPaymentRepository.save(schedule);
+        auditLogService.logEvent(
+                user.getId(),
+                "SCHEDULED_PAYMENT_CREATED",
+                String.format("Created %s scheduled payment of NPR %.2f to %s",
+                        request.getFrequency(), request.getAmount(), request.getRecipientPhoneNumber()),
+                httpServletRequest
+        );
         return mapToDto(saved);
     }
 
@@ -87,6 +98,13 @@ public class ScheduledPaymentServiceImpl implements ScheduledPaymentService {
         }
 
         schedule.setStatus(ScheduledPaymentStatus.CANCELLED);
+        auditLogService.logEvent(
+                user.getId(),
+                "SCHEDULED_PAYMENT_CANCELLED",
+                String.format("Cancelled scheduled payment ID: %d (Recipient: %s, Amount: NPR %.2f)",
+                        scheduleId, schedule.getRecipientPhoneNumber(), schedule.getAmount()),
+                httpServletRequest
+        );
         scheduledPaymentRepository.save(schedule);
     }
     private void validateTransactionPin(User user, String rawPin) {
