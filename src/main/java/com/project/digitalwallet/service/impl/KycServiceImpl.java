@@ -1,7 +1,9 @@
 package com.project.digitalwallet.service.impl;
 
 import com.project.digitalwallet.common.enums.KycStatus;
+import com.project.digitalwallet.common.enums.NotificationType;
 import com.project.digitalwallet.common.exception.ResourceNotFoundException;
+import com.project.digitalwallet.common.util.WalletTransactionEvent;
 import com.project.digitalwallet.dto.KycStatusResponse;
 import com.project.digitalwallet.dto.ReviewKycRequest;
 import com.project.digitalwallet.dto.SubmitKycRequest;
@@ -15,6 +17,7 @@ import com.project.digitalwallet.service.FileStorageService;
 import com.project.digitalwallet.service.KycService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -24,6 +27,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDate;
 
 import static com.project.digitalwallet.mapper.KycMapper.mapToKycStatusResponse;
+import static com.project.digitalwallet.mapper.KycMapper.mapToResponse;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +38,8 @@ public class KycServiceImpl implements KycService {
     private final FileStorageService fileStorageService;
     private final AuditLogService auditLogService;
     private final HttpServletRequest httpServletRequest;
+    private final ApplicationEventPublisher eventPublisher;
+
 
 
     @Override
@@ -79,7 +85,7 @@ public class KycServiceImpl implements KycService {
     @Transactional(readOnly = true)
     public KycStatusResponse getKycStatus(Long userId) {
         return kycDetailsRepository.findByUserId(userId)
-                .map(this::mapToResponse)
+                .map(KycMapper::mapToResponse)
                 .orElseGet(() -> KycStatusResponse.builder()
                         .status(KycStatus.UNVERIFIED)
                         .build());
@@ -95,15 +101,19 @@ public class KycServiceImpl implements KycService {
             throw new IllegalArgumentException("Review status must be either VERIFIED or REJECTED.");
         }
 
+        boolean isVerified = request.getStatus() == KycStatus.VERIFIED;
+
         kyc.setStatus(request.getStatus());
         kyc.setAdminRemarks(request.getAdminRemarks());
 
-        if (request.getStatus() == KycStatus.VERIFIED) {
+        if (isVerified) {
             kyc.setVerifiedAt(LocalDate.now());
         }
 
         KycDetails saved = kycDetailsRepository.save(kyc);
-        String eventType = request.getStatus() == KycStatus.VERIFIED ? "KYC_VERIFIED" : "KYC_REJECTED";
+
+        // 1. Audit Logging
+        String eventType = isVerified ? "KYC_VERIFIED" : "KYC_REJECTED";
         String description = String.format("KYC (ID: %d) status updated to %s. Admin Remarks: %s",
                 kycId,
                 request.getStatus(),
@@ -115,27 +125,32 @@ public class KycServiceImpl implements KycService {
                 description,
                 httpServletRequest
         );
+
+        // 2. Publish Notification Event
+        if (kyc.getUser() != null) {
+            NotificationType notificationType = isVerified
+                    ? NotificationType.KYC_VERIFIED
+                    : NotificationType.KYC_REJECTED;
+
+            String notificationMessage = isVerified
+                    ? "Your KYC verification has been approved successfully."
+                    : String.format("Your KYC verification was rejected. Reason: %s",
+                    request.getAdminRemarks() != null ? request.getAdminRemarks() : "Please resubmit with valid documents.");
+
+            eventPublisher.publishEvent(new WalletTransactionEvent(
+                    kyc.getUser().getId(),
+                    kyc.getUser().getPhoneNumber(),
+                    notificationType,
+                    null,
+                    "NPR",
+                    "KYC-" + kyc.getId(),
+                    notificationMessage
+            ));
+        }
+
         return mapToResponse(saved);
     }
 
-    private KycStatusResponse mapToResponse(KycDetails entity) {
-        String frontUrl = entity.getFrontImagePath() != null
-                ? "/api/kyc/files/" + entity.getFrontImagePath()
-                : null;
-
-
-        return KycStatusResponse.builder()
-                .id(entity.getId())
-                .status(entity.getStatus())
-                .documentType(entity.getDocumentType())
-                .documentNumber(entity.getDocumentNumber())
-                .issueDate(entity.getIssueDate())
-                .dateOfBirth(entity.getDateOfBirth())
-                .frontImageUrl(frontUrl)
-                .adminRemarks(entity.getAdminRemarks())
-                .verifiedAt(entity.getVerifiedAt())
-                .build();
-    }
     @Override
     @Transactional(readOnly = true)
     public Page<KycStatusResponse> getAllKycs(KycStatus status, Pageable pageable) {

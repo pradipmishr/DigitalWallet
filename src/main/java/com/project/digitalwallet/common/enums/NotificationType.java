@@ -5,5 +5,7 @@ public enum NotificationType {
     TRANSACTION_DEBIT,
     SECURITY_ALERT,
     SYSTEM_ANNOUNCEMENT,
-    WELCOME
+    WELCOME,
+    KYC_VERIFIED,
+    KYC_REJECTED
 }
