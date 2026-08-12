@@ -21,4 +21,8 @@ public interface ScheduledPaymentRepository extends JpaRepository<ScheduledPayme
             @Param("status") ScheduledPaymentStatus status,
             @Param("now") LocalDateTime now
     );
+    List<ScheduledPayment> findByStatusAndNextRunAtLessThanEqual(
+            ScheduledPaymentStatus status,
+            LocalDateTime currentTime
+    );
 }

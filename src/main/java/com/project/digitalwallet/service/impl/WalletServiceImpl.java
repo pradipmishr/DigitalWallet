@@ -1,14 +1,18 @@
 package com.project.digitalwallet.service.impl;
 
+import com.project.digitalwallet.common.enums.KycStatus;
 import com.project.digitalwallet.common.enums.NotificationType;
+import com.project.digitalwallet.common.util.TransactionLimitValidator;
 import com.project.digitalwallet.common.util.WalletTransactionEvent;
 import com.project.digitalwallet.dto.*;
+import com.project.digitalwallet.entity.KycDetails;
 import com.project.digitalwallet.entity.Transaction;
 import com.project.digitalwallet.entity.User;
 import com.project.digitalwallet.entity.Wallet;
 import com.project.digitalwallet.common.enums.WalletStatus;
 import com.project.digitalwallet.mapper.TransactionMapper;
 import com.project.digitalwallet.mapper.WalletMapper;
+import com.project.digitalwallet.repository.KycDetailsRepository;
 import com.project.digitalwallet.repository.TransactionRepository;
 import com.project.digitalwallet.repository.UserRepository;
 import com.project.digitalwallet.repository.WalletRepository;
@@ -27,6 +31,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.data.domain.Pageable;
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.YearMonth;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -41,6 +50,7 @@ public class WalletServiceImpl implements WalletService {
     private final HttpServletRequest httpServletRequest;
     private final AdminService adminService;
     private final ApplicationEventPublisher eventPublisher;
+    private final TransactionLimitValidator limitValidator;
 
 
     @Override
@@ -164,8 +174,7 @@ public class WalletServiceImpl implements WalletService {
         }
 
 
-        validateDailyLimit(senderWallet, request.getAmount());
-
+        limitValidator.validateTieredLimits(senderUser, senderWallet, request.getAmount());
         // Perform balance update
         senderWallet.setBalance(senderWallet.getBalance().subtract(request.getAmount()));
         receiverWallet.setBalance(receiverWallet.getBalance().add(request.getAmount()));
@@ -209,32 +218,6 @@ public class WalletServiceImpl implements WalletService {
 
         return TransactionMapper.toTransactionDto(savedTransaction);
     }
-    private void validateDailyLimit(Wallet senderWallet, BigDecimal transferAmount) {
-        java.time.LocalDateTime startOfDay = java.time.LocalDate.now().atStartOfDay();
-        java.time.LocalDateTime endOfDay = java.time.LocalDate.now().atTime(java.time.LocalTime.MAX);
-
-        BigDecimal totalToday = transactionRepository.findTotalTransferredToday(
-                senderWallet.getId(),
-                startOfDay,
-                endOfDay
-        );
-
-        BigDecimal globalLimit = adminService.getGlobalDailyLimit();
-        BigDecimal projectedTotal = totalToday.add(transferAmount);
-
-        if (projectedTotal.compareTo(globalLimit) > 0) {
-            BigDecimal remainingLimit = globalLimit.subtract(totalToday);
-            if (remainingLimit.compareTo(BigDecimal.ZERO) < 0) {
-                remainingLimit = BigDecimal.ZERO;
-            }
-
-            throw new IllegalStateException(String.format(
-                    "Transfer exceeds the global daily limit of %s. Total transferred today: %s. Remaining daily limit: %s",
-                    globalLimit, totalToday, remainingLimit
-            ));
-        }
-    }
-
 
     @Transactional(readOnly = true)
     @Override

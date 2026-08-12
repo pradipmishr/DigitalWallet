@@ -4,6 +4,7 @@ import com.project.digitalwallet.common.enums.NotificationType;
 import com.project.digitalwallet.common.enums.RequestMoneyStatus;
 import com.project.digitalwallet.common.enums.TransactionStatus;
 import com.project.digitalwallet.common.enums.TransactionType;
+import com.project.digitalwallet.common.util.TransactionLimitValidator;
 import com.project.digitalwallet.common.util.WalletTransactionEvent;
 import com.project.digitalwallet.dto.AcceptMoneyRequest;
 import com.project.digitalwallet.dto.CreateMoneyRequest;
@@ -43,6 +44,7 @@ public class RequestMoneyServiceImpl implements RequestMoneyService {
     private final AuditLogService auditLogService;
     private final ApplicationEventPublisher eventPublisher;
     private final HttpServletRequest httpServletRequest;
+    private final TransactionLimitValidator limitValidator;
 
     @Override
     @Transactional
@@ -133,6 +135,7 @@ public class RequestMoneyServiceImpl implements RequestMoneyService {
         if (payerWallet.getBalance().compareTo(requestMoney.getAmount()) < 0) {
             throw new IllegalStateException("Insufficient balance to honor this money request.");
         }
+        limitValidator.validateTieredLimits(payer, payerWallet, requestMoney.getAmount());
 
         // 4. Debit & Credit Wallet balances
         payerWallet.setBalance(payerWallet.getBalance().subtract(requestMoney.getAmount()));
