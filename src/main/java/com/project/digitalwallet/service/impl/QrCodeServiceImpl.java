@@ -8,6 +8,8 @@ import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
 import com.project.digitalwallet.dto.QrCodeResponse;
+import com.project.digitalwallet.dto.ScanQrRequest;
+import com.project.digitalwallet.dto.ScanQrResponse;
 import com.project.digitalwallet.entity.User;
 import com.project.digitalwallet.repository.UserRepository;
 import com.project.digitalwallet.service.QrCodeService;
@@ -76,6 +78,34 @@ public class QrCodeServiceImpl implements QrCodeService {
 
         } catch (Exception e) {
             throw new RuntimeException("Failed to generate and save QR code for user ID: " + userId, e);
+        }
+    }
+    @Override
+    public ScanQrResponse parseAndValidateQr(ScanQrRequest request) {
+        try {
+            // Parse JSON payload from scanned QR string
+            Map<String, Object> payload = objectMapper.readValue(request.getQrContent(), Map.class);
+
+            String type = (String) payload.get("type");
+            if (!"STATIC_WALLET_QR".equals(type)) {
+                throw new IllegalArgumentException("Invalid QR code type.");
+            }
+
+            String phoneNumber = (String) payload.get("phoneNumber");
+
+            // Validate recipient existence in DB
+            User recipient = userRepository.findByPhoneNumber(phoneNumber)
+                    .orElseThrow(() -> new IllegalArgumentException("Target user associated with this QR code does not exist."));
+
+            return ScanQrResponse.builder()
+                    .recipientUserId(recipient.getId())
+                    .recipientName(recipient.getFirstName() + " " + recipient.getLastName())
+                    .recipientPhoneNumber(recipient.getPhoneNumber())
+                    .type(type)
+                    .build();
+
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Failed to decode QR code. Invalid format or payload.", e);
         }
     }
 }
