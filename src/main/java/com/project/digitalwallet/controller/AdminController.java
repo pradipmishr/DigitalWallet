@@ -131,8 +131,15 @@ public class AdminController {
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "DESC") String sortDir) {
 
-        Sort sort = sortDir.equalsIgnoreCase("ASC") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
-        Pageable pageable = PageRequest.of(page, size, sort);
+        // Validate sort direction
+        Sort.Direction direction = "ASC".equalsIgnoreCase(sortDir)
+                ? Sort.Direction.ASC
+                : Sort.Direction.DESC;
+
+        // Default to "createdAt" if sortBy is blank/null
+        String validSortBy = (sortBy != null && !sortBy.isBlank()) ? sortBy : "createdAt";
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, validSortBy));
 
         Page<KycStatusResponse> response = kycService.getAllKycs(status, pageable);
 
@@ -143,6 +150,10 @@ public class AdminController {
                 true
         ));
     }
+
+    /**
+     * Get KYC details by KYC Record ID
+     */
     @GetMapping("/kyc/{id}")
     public ResponseEntity<ResponseWrapper<KycStatusResponse>> getKycById(@PathVariable("id") Long id) {
         KycStatusResponse response = kycService.getKycById(id);
@@ -154,9 +165,30 @@ public class AdminController {
                 true
         ));
     }
+
+    /**
+     * Get KYC details by Target User ID
+     */
+    @GetMapping("/kyc/user/{targetUserId}")
+    public ResponseEntity<ResponseWrapper<KycStatusResponse>> getKycByUserIdForAdmin(
+            @PathVariable("targetUserId") Long targetUserId) {
+
+        KycStatusResponse response = kycService.getKycByUserIdForAdmin(targetUserId);
+
+        return ResponseEntity.ok(new ResponseWrapper<>(
+                response,
+                "KYC record for target user retrieved successfully.",
+                HttpStatus.OK.value(),
+                true
+        ));
+    }
+
+    /**
+     * Review (Approve/Reject) a KYC application
+     */
     @PatchMapping("/kyc/{kycId}/review")
     public ResponseEntity<ResponseWrapper<KycStatusResponse>> reviewKyc(
-            @PathVariable Long kycId,
+            @PathVariable("kycId") Long kycId,
             @Valid @RequestBody ReviewKycRequest request) {
 
         KycStatusResponse response = kycService.reviewKyc(kycId, request);

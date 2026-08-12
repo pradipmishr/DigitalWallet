@@ -2,21 +2,24 @@ package com.project.digitalwallet.mapper;
 
 import com.project.digitalwallet.dto.KycStatusResponse;
 import com.project.digitalwallet.entity.KycDetails;
+import com.project.digitalwallet.service.FileStorageService;
+import com.project.digitalwallet.service.impl.SupabaseStorageServiceImpl;
 
 public class KycMapper {
-    public static KycStatusResponse mapToResponse(KycDetails entity) {
-        return KycStatusResponse.builder()
-                .id(entity.getId())
-                .status(entity.getStatus())
-                .documentType(entity.getDocumentType())
-                .documentNumber(entity.getDocumentNumber())
-                .issueDate(entity.getIssueDate())
-                .dateOfBirth(entity.getDateOfBirth())
-                .adminRemarks(entity.getAdminRemarks())
-                .verifiedAt(entity.getVerifiedAt())
-                .build();
-    }
-    public static KycStatusResponse mapToKycStatusResponse(KycDetails kyc) {
+
+    public static KycStatusResponse mapToKycStatusResponse(KycDetails kyc, FileStorageService storageService) {
+        if (kyc == null) {
+            return null;
+        }
+
+        String signedUrl = null;
+        if (kyc.getFrontImagePath() != null && storageService != null) {
+            signedUrl = storageService.createSignedUrl(
+                    kyc.getFrontImagePath(),
+                    SupabaseStorageServiceImpl.EXPIRATION_5_MINUTES
+            );
+        }
+
         return KycStatusResponse.builder()
                 .id(kyc.getId())
                 .status(kyc.getStatus())
@@ -24,7 +27,7 @@ public class KycMapper {
                 .documentNumber(kyc.getDocumentNumber())
                 .issueDate(kyc.getIssueDate())
                 .dateOfBirth(kyc.getDateOfBirth())
-                .frontImageUrl(kyc.getFrontImagePath() != null ? "/api/kyc/files/" + kyc.getFrontImagePath() : null)
+                .frontImageUrl(signedUrl)
                 .adminRemarks(kyc.getAdminRemarks())
                 .verifiedAt(kyc.getVerifiedAt())
                 .build();

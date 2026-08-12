@@ -23,7 +23,6 @@ import org.springframework.web.multipart.MultipartFile;
 public class KycController {
 
     private final KycService kycService;
-    //private final FileStorageService fileStorageService;
     private final OcrExtractionService ocrExtractionService;
 
 
@@ -51,11 +50,12 @@ public class KycController {
     public ResponseEntity<ResponseWrapper<KycStatusResponse>> getKycStatus(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
 
-        KycStatusResponse response = kycService.getKycStatus(userPrincipal.getUser().getId());
+        Long authUserId = userPrincipal.getUser().getId();
+        KycStatusResponse response = kycService.getKycStatusForUser(authUserId);
 
         return ResponseEntity.ok(new ResponseWrapper<>(
                 response,
-                "KYC status retrieved successfully.",
+                "KYC status and documents retrieved successfully.",
                 HttpStatus.OK.value(),
                 true
         ));
@@ -76,18 +76,4 @@ public class KycController {
         ));
     }
 
-
-    //This should also be checked!
-//    @GetMapping("/files/{dir}/{fileName:.+}")
-//    public ResponseEntity<Resource> getKycFile(
-//            @PathVariable String dir,
-//            @PathVariable String fileName) {
-//
-//        Resource resource = fileStorageService.loadFileAsResource(dir + "/" + fileName);
-//
-//        return ResponseEntity.ok()
-//                .contentType(MediaType.IMAGE_JPEG)
-//                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
-//                .body(resource);
-//    }
 }

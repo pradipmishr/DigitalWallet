@@ -9,9 +9,17 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
 
 public interface KycService {
+
+    // User submission & status retrieval
     KycStatusResponse submitKyc(Long userId, SubmitKycRequest request, MultipartFile frontImage);
+    KycStatusResponse getKycStatusForUser(Long authenticatedUserId);
+
+    // Legacy/Internal method (can delegate to getKycStatusForUser or be kept for backward compatibility)
     KycStatusResponse getKycStatus(Long userId);
+
+    // Admin endpoints
     KycStatusResponse reviewKyc(Long kycId, ReviewKycRequest request);
     Page<KycStatusResponse> getAllKycs(KycStatus status, Pageable pageable);
     KycStatusResponse getKycById(Long id);
+    KycStatusResponse getKycByUserIdForAdmin(Long targetUserId);
 }

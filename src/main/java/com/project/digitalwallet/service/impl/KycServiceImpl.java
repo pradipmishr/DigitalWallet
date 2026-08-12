@@ -13,7 +13,6 @@ import com.project.digitalwallet.mapper.KycMapper;
 import com.project.digitalwallet.repository.KycDetailsRepository;
 import com.project.digitalwallet.repository.UserRepository;
 import com.project.digitalwallet.service.AuditLogService;
-import com.project.digitalwallet.service.FileStorageService;
 import com.project.digitalwallet.service.KycService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -26,21 +25,16 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 
-import static com.project.digitalwallet.mapper.KycMapper.mapToKycStatusResponse;
-import static com.project.digitalwallet.mapper.KycMapper.mapToResponse;
-
 @Service
 @RequiredArgsConstructor
 public class KycServiceImpl implements KycService {
 
     private final KycDetailsRepository kycDetailsRepository;
     private final UserRepository userRepository;
-    private final FileStorageService fileStorageService;
+    private final SupabaseStorageServiceImpl supabaseStorageService;
     private final AuditLogService auditLogService;
     private final HttpServletRequest httpServletRequest;
     private final ApplicationEventPublisher eventPublisher;
-
-
 
     @Override
     @Transactional
@@ -59,18 +53,21 @@ public class KycServiceImpl implements KycService {
             throw new IllegalStateException("Your account is already verified.");
         }
 
-        // Store file uploads on disk under "kyc-documents"
-        String frontPath = fileStorageService.storeFile(frontImage, "kyc-documents");
+        // 1. Upload to Supabase bucket -> Stores relative path (e.g., "user_12/uuid-filename.jpg")
+        String objectFolder = "user_" + userId;
+        String frontPath = supabaseStorageService.storeFile(frontImage, objectFolder);
 
+        // 2. Persist fields
         kycDetails.setDocumentType(request.getDocumentType());
         kycDetails.setDocumentNumber(request.getDocumentNumber());
         kycDetails.setIssueDate(request.getIssueDate());
         kycDetails.setDateOfBirth(request.getDateOfBirth());
-        kycDetails.setFrontImagePath(frontPath);
+        kycDetails.setFrontImagePath(frontPath); // Relative path saved in DB
         kycDetails.setStatus(KycStatus.PENDING);
         kycDetails.setAdminRemarks(null);
 
         KycDetails saved = kycDetailsRepository.save(kycDetails);
+
         auditLogService.logEvent(
                 user.getId(),
                 "KYC_SUBMITTED",
@@ -78,24 +75,36 @@ public class KycServiceImpl implements KycService {
                         request.getDocumentType(), request.getDocumentNumber()),
                 httpServletRequest
         );
-        return mapToResponse(saved);
+
+        // Return mapper with dynamic signed URL generated
+        return KycMapper.mapToKycStatusResponse(saved, supabaseStorageService);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public KycStatusResponse getKycStatus(Long userId) {
-        return kycDetailsRepository.findByUserId(userId)
-                .map(KycMapper::mapToResponse)
+    public KycStatusResponse getKycStatusForUser(Long authenticatedUserId) {
+        return kycDetailsRepository.findByUserId(authenticatedUserId)
+                .map(kyc -> KycMapper.mapToKycStatusResponse(kyc, supabaseStorageService))
                 .orElseGet(() -> KycStatusResponse.builder()
                         .status(KycStatus.UNVERIFIED)
                         .build());
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public KycStatusResponse getKycStatus(Long userId) {
+        // Delegates directly to getKycStatusForUser
+        return getKycStatusForUser(userId);
+    }
+
+
+    // ADMIN METHODS
+
+    @Override
     @Transactional
     public KycStatusResponse reviewKyc(Long kycId, ReviewKycRequest request) {
         KycDetails kyc = kycDetailsRepository.findById(kycId)
-                .orElseThrow(() -> new IllegalArgumentException("KYC record not found with ID: " + kycId));
+                .orElseThrow(() -> new ResourceNotFoundException("KYC record not found with ID: " + kycId));
 
         if (request.getStatus() != KycStatus.VERIFIED && request.getStatus() != KycStatus.REJECTED) {
             throw new IllegalArgumentException("Review status must be either VERIFIED or REJECTED.");
@@ -112,7 +121,7 @@ public class KycServiceImpl implements KycService {
 
         KycDetails saved = kycDetailsRepository.save(kyc);
 
-        // 1. Audit Logging
+        // Audit Logging
         String eventType = isVerified ? "KYC_VERIFIED" : "KYC_REJECTED";
         String description = String.format("KYC (ID: %d) status updated to %s. Admin Remarks: %s",
                 kycId,
@@ -126,7 +135,7 @@ public class KycServiceImpl implements KycService {
                 httpServletRequest
         );
 
-        // 2. Publish Notification Event
+        // Event Notification
         if (kyc.getUser() != null) {
             NotificationType notificationType = isVerified
                     ? NotificationType.KYC_VERIFIED
@@ -148,7 +157,8 @@ public class KycServiceImpl implements KycService {
             ));
         }
 
-        return mapToResponse(saved);
+        // Return mapper with dynamic signed URL generated
+        return KycMapper.mapToKycStatusResponse(saved, supabaseStorageService);
     }
 
     @Override
@@ -162,14 +172,28 @@ public class KycServiceImpl implements KycService {
             kycPage = kycDetailsRepository.findAll(pageable);
         }
 
-        return kycPage.map(KycMapper::mapToKycStatusResponse);
+        // Maps each item in the page to generate its respective 5-minute signed URL
+        return kycPage.map(kyc -> KycMapper.mapToKycStatusResponse(kyc, supabaseStorageService));
     }
+
     @Override
     @Transactional(readOnly = true)
     public KycStatusResponse getKycById(Long id) {
         KycDetails kyc = kycDetailsRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("KYC record not found with id: " + id));
 
-        return mapToKycStatusResponse(kyc);
+        return KycMapper.mapToKycStatusResponse(kyc, supabaseStorageService);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public KycStatusResponse getKycByUserIdForAdmin(Long targetUserId) {
+        User user = userRepository.findById(targetUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + targetUserId));
+
+        KycDetails kycDetails = kycDetailsRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("No KYC record found for user ID: " + targetUserId));
+
+        return KycMapper.mapToKycStatusResponse(kycDetails, supabaseStorageService);
     }
 }
