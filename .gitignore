@@ -6,6 +6,7 @@ target/
 
 src/main/resources/application.properties
 uploads/*
+qr-codes/*
 
 ### STS ###
 .apt_generated
