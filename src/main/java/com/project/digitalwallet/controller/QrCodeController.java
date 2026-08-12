@@ -27,7 +27,7 @@ public class QrCodeController {
         QrCodeResponse response = qrCodeService.generateAndSaveStaticQr(currentUser.getUser().getId());
 
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(new ResponseWrapper<>(response, "Static QR code generated and saved successfully.", HttpStatus.CREATED.value(), true));
+                .body(new ResponseWrapper<>(response, "Static QR code generated successfully.", HttpStatus.CREATED.value(), true));
     }
 
     @PostMapping("/scan")
