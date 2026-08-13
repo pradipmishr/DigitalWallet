@@ -46,12 +46,12 @@ public class KycController {
         ));
     }
 
-    @GetMapping("/status")
-    public ResponseEntity<ResponseWrapper<KycStatusResponse>> getKycStatus(
+    @GetMapping
+    public ResponseEntity<ResponseWrapper<KycStatusResponse>> getKyc(
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
 
         Long authUserId = userPrincipal.getUser().getId();
-        KycStatusResponse response = kycService.getKycStatusForUser(authUserId);
+        KycStatusResponse response = kycService.getKycByUserId(authUserId);
 
         return ResponseEntity.ok(new ResponseWrapper<>(
                 response,

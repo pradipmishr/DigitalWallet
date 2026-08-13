@@ -173,7 +173,7 @@ public class AdminController {
     public ResponseEntity<ResponseWrapper<KycStatusResponse>> getKycByUserIdForAdmin(
             @PathVariable("targetUserId") Long targetUserId) {
 
-        KycStatusResponse response = kycService.getKycByUserIdForAdmin(targetUserId);
+        KycStatusResponse response = kycService.getKycByUserId(targetUserId);
 
         return ResponseEntity.ok(new ResponseWrapper<>(
                 response,

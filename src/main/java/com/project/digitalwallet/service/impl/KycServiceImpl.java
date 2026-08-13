@@ -49,7 +49,7 @@ public class KycServiceImpl implements KycService {
         KycDetails kycDetails = kycDetailsRepository.findByUserId(userId)
                 .orElse(KycDetails.builder().user(user).build());
 
-        if (kycDetails.getStatus() == KycStatus.VERIFIED) {
+            if (kycDetails.getStatus() == KycStatus.VERIFIED) {
             throw new IllegalStateException("Your account is already verified.");
         }
 
@@ -64,6 +64,7 @@ public class KycServiceImpl implements KycService {
         kycDetails.setDateOfBirth(request.getDateOfBirth());
         kycDetails.setFrontImagePath(frontPath); // Relative path saved in DB
         kycDetails.setStatus(KycStatus.PENDING);
+      //  kycDetails.setUser(user);
         kycDetails.setAdminRemarks(null);
 
         KycDetails saved = kycDetailsRepository.save(kycDetails);
@@ -187,13 +188,13 @@ public class KycServiceImpl implements KycService {
 
     @Override
     @Transactional(readOnly = true)
-    public KycStatusResponse getKycByUserIdForAdmin(Long targetUserId) {
-        User user = userRepository.findById(targetUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + targetUserId));
+    public KycStatusResponse getKycByUserId(Long targetUserId) {
 
-        KycDetails kycDetails = kycDetailsRepository.findByUserId(user.getId())
+        KycDetails kycDetails = kycDetailsRepository.findByUserId(targetUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("No KYC record found for user ID: " + targetUserId));
 
         return KycMapper.mapToKycStatusResponse(kycDetails, supabaseStorageService);
     }
+
+
 }

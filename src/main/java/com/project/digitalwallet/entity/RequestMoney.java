@@ -16,7 +16,6 @@ import java.time.LocalDateTime;
 @Builder
 public class RequestMoney extends BaseEntity{
 
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "requester_id", nullable = false)
     private User requester; // User A

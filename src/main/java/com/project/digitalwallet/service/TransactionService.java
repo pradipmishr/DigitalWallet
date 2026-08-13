@@ -10,7 +10,7 @@ import java.math.BigDecimal;
 
 public interface TransactionService {
     ByteArrayInputStream generateCsvStatement(Long userId, StatementRequest request);
-    public byte[] generatePdfStatement(Long userId, StatementRequest request);
+    byte[] generatePdfStatement(Long userId, StatementRequest request);
 
     Page<TransactionDto> searchTransactionsForAdmin(AdminTransactionSearchRequest request);
 

@@ -21,5 +21,5 @@ public interface KycService {
     KycStatusResponse reviewKyc(Long kycId, ReviewKycRequest request);
     Page<KycStatusResponse> getAllKycs(KycStatus status, Pageable pageable);
     KycStatusResponse getKycById(Long id);
-    KycStatusResponse getKycByUserIdForAdmin(Long targetUserId);
+    KycStatusResponse getKycByUserId(Long targetUserId);
 }
