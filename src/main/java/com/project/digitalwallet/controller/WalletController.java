@@ -1,5 +1,6 @@
 package com.project.digitalwallet.controller;
 
+import com.project.digitalwallet.annotation.Idempotent;
 import com.project.digitalwallet.common.util.ResponseWrapper;
 import com.project.digitalwallet.dto.DepositRequest;
 import com.project.digitalwallet.dto.TransactionDto;
@@ -57,7 +58,9 @@ public class WalletController {
         );
     }
     @PostMapping("/transfer")
+    @Idempotent(expireInSeconds = 86400) // Caches for 24 hours
     public ResponseWrapper<TransactionDto> transfer(
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @AuthenticationPrincipal UserPrincipal currentUser,
             @Valid @RequestBody TransferRequest request
     ) {

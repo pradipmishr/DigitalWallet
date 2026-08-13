@@ -19,7 +19,10 @@ public class IdempotencyRecord implements Serializable {
     }
 
     private Status status;
-    private String requestHash;    // SHA-256 hash of the request body to detect payload mismatches
-    private int httpStatusCode;    // e.g. 200, 201
-    private Object responseBody;   // Response Wrapper/DTO returned to client
+    private String requestHash;    // SHA-256 hash of request body
+
+    @Builder.Default
+    private Integer httpStatusCode = 0; // Use Integer wrapper instead of primitive int
+
+    private Object responseBody;   // Response DTO/Wrapper
 }
