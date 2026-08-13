@@ -13,6 +13,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import java.math.BigDecimal;
+
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -29,35 +31,61 @@ public class NotificationEventListener {
         String title;
         String message;
 
+        // Formatted amount representation (e.g., 500 instead of 500.0000)
+        String formattedAmount = (event.amount() != null)
+                ? event.amount().stripTrailingZeros().toPlainString()
+                : "0";
+
         // 1. Dynamically determine Title and Message based on NotificationType
         switch (event.type()) {
             case TRANSACTION_CREDIT:
                 title = "Money Received";
-                message = event.description() != null ? event.description()
-                        : String.format("Received %s %s. Ref: %s", event.currency(), event.amount(), event.referenceId());
+                message = buildTransactionMessage(
+                        "Received Rs. " + formattedAmount,
+                        event.description()
+                );
                 break;
 
             case TRANSACTION_DEBIT:
                 title = "Money Sent";
-                message = event.description() != null ? event.description()
-                        : String.format("Sent %s %s. Ref: %s", event.currency(), event.amount(), event.referenceId());
+                message = buildTransactionMessage(
+                        "Money sent Rs. " + formattedAmount,
+                        event.description()
+                );
                 break;
 
             case SECURITY_ALERT:
                 title = "Security Alert";
-                message = event.description() != null ? event.description()
+                message = (event.description() != null && !event.description().isBlank())
+                        ? event.description()
                         : "A security action was performed on your account.";
                 break;
 
             case WELCOME:
                 title = "Welcome!";
-                message = event.description() != null ? event.description()
+                message = (event.description() != null && !event.description().isBlank())
+                        ? event.description()
                         : "Welcome to Digital Wallet!";
+                break;
+
+            case KYC_VERIFIED:
+                title = "KYC Approved";
+                message = (event.description() != null && !event.description().isBlank())
+                        ? event.description()
+                        : "Your KYC verification has been approved successfully.";
+                break;
+
+            case KYC_REJECTED:
+                title = "KYC Rejected";
+                message = (event.description() != null && !event.description().isBlank())
+                        ? event.description()
+                        : "Your KYC verification was rejected. Please review and resubmit.";
                 break;
 
             default:
                 title = "Account Notification";
-                message = event.description() != null ? event.description()
+                message = (event.description() != null && !event.description().isBlank())
+                        ? event.description()
                         : "You have a new notification.";
                 break;
         }
@@ -95,5 +123,21 @@ public class NotificationEventListener {
         );
 
         log.info("STOMP message sent successfully to userPhoneNumber: {}", event.userPhoneNumber());
+    }
+
+    /**
+     * Helper method to combine base message with description/remarks
+     */
+    private String buildTransactionMessage(String baseText, String description) {
+        if (description == null || description.isBlank()) {
+            return baseText;
+        }
+
+        // If description already starts with base action details, avoid duplicating it
+        if (description.startsWith("Transfer to ") || description.startsWith("Received money from ")) {
+            return baseText + " (" + description + ")";
+        }
+
+        return baseText + " (" + description + ")";
     }
 }

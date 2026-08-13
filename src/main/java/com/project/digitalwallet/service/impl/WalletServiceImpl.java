@@ -48,7 +48,6 @@ public class WalletServiceImpl implements WalletService {
     private final PasswordEncoder passwordEncoder;
     private final AuditLogService auditLogService;
     private final HttpServletRequest httpServletRequest;
-    private final AdminService adminService;
     private final ApplicationEventPublisher eventPublisher;
     private final TransactionLimitValidator limitValidator;
 
@@ -172,7 +171,6 @@ public class WalletServiceImpl implements WalletService {
         if (senderWallet.getBalance().compareTo(request.getAmount()) < 0) {
             throw new IllegalArgumentException("Insufficient wallet balance.");
         }
-
 
         limitValidator.validateTieredLimits(senderUser, senderWallet, request.getAmount());
         // Perform balance update

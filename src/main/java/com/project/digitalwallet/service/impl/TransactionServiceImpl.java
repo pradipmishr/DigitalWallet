@@ -100,7 +100,7 @@ public class TransactionServiceImpl implements TransactionService {
         );
 
         // HTML content string formatted for OpenHTMLtoPDF or Flying Saucer / iText
-        String htmlContent = buildStatementHtml(user, transactions, request);
+       // String htmlContent = buildStatementHtml(user, transactions, request);
 
         // Convert HTML string to PDF ByteArrayOutputStream
         ByteArrayOutputStream pdfOutputStream = new ByteArrayOutputStream();
@@ -244,7 +244,7 @@ public class TransactionServiceImpl implements TransactionService {
                 .type(TransactionType.REVERSAL)
                 .status(TransactionStatus.SUCCESS)
                 .referenceNumber("REV-" + originalTx.getReferenceNumber())
-                .description("REVERSAL for Tx #" + originalTx.getId() + ". Reason: " + request.getReason())
+                .description("REVERSAL for Tx #" + originalTx.getReferenceNumber() + ". Reason: " + request.getReason())
                 .build();
 
         Transaction savedReversal = transactionRepository.save(reversalTx);
@@ -253,7 +253,7 @@ public class TransactionServiceImpl implements TransactionService {
         auditLogService.logEvent(
                 adminUserDto.getId(),
                 "ADMIN_TRANSACTION_REVERSAL",
-                String.format("Admin reversed Tx #%d (Amount: %s). Reason: %s", originalTx.getId(), amount, request.getReason()),
+                String.format("Admin reversed Tx #%d (Amount: %s). Reason: %s", originalTx.getReferenceNumber(), amount, request.getReason()),
                 httpServletRequest
         );
         if (senderWallet.getUser() != null) {

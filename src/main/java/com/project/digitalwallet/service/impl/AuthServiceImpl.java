@@ -82,7 +82,6 @@ public class AuthServiceImpl implements AuthService {
         );
     }
 
-
     @Override
     @Transactional
     public VerifyResetOtpResponse verifyResetOtp(VerifyResetOtpRequest request) {
