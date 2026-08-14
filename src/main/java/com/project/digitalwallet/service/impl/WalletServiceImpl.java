@@ -21,6 +21,7 @@ import com.project.digitalwallet.service.AuditLogService;
 import com.project.digitalwallet.service.WalletService;
 import com.project.digitalwallet.common.util.WalletNumberGenerator;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -30,6 +31,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.data.domain.Pageable;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -37,6 +39,7 @@ import java.time.LocalTime;
 import java.time.YearMonth;
 import java.util.Optional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class WalletServiceImpl implements WalletService {
@@ -50,7 +53,6 @@ public class WalletServiceImpl implements WalletService {
     private final HttpServletRequest httpServletRequest;
     private final ApplicationEventPublisher eventPublisher;
     private final TransactionLimitValidator limitValidator;
-
 
     @Override
     public WalletDto createWallet(UserDto userDto) {
@@ -76,6 +78,7 @@ public class WalletServiceImpl implements WalletService {
         ));
         return WalletMapper.toWalletDto(savedWallet);
     }
+
     @Transactional(readOnly = true)
     @Override
     public WalletDto getCurrentUserWallet(Long userId) {
@@ -91,7 +94,8 @@ public class WalletServiceImpl implements WalletService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
 
-        Wallet wallet = walletRepository.findByUserId(userId)
+        // Acquire Pessimistic Lock on the wallet during deposit to prevent race conditions
+        Wallet wallet = walletRepository.findByUserIdForUpdate(userId)
                 .orElseThrow(() -> new IllegalArgumentException("No wallet found for user ID: " + userId));
 
         if (wallet.getStatus() != WalletStatus.ACTIVE) {
@@ -112,7 +116,7 @@ public class WalletServiceImpl implements WalletService {
                 httpServletRequest
         );
 
-        // Publish notification event (will fire asynchronously AFTER database commit)
+        // Publish notification event (fires asynchronously AFTER database commit)
         eventPublisher.publishEvent(new WalletTransactionEvent(
                 user.getId(),
                 user.getPhoneNumber(),
@@ -136,7 +140,7 @@ public class WalletServiceImpl implements WalletService {
             throw new IllegalStateException("Transaction PIN is not set.");
         }
 
-        // Verify PIN and Log Failures
+        // 1. Verify PIN and Log Failures before taking locks
         if (!passwordEncoder.matches(request.getPin(), senderUser.getTransactionPin())) {
             auditLogService.logEvent(
                     senderUser.getId(),
@@ -147,13 +151,6 @@ public class WalletServiceImpl implements WalletService {
             throw new IllegalArgumentException("Invalid Transaction PIN.");
         }
 
-        Wallet senderWallet = walletRepository.findByUserId(senderUserId)
-                .orElseThrow(() -> new IllegalArgumentException("Sender wallet not found."));
-
-        if (senderWallet.getStatus() != WalletStatus.ACTIVE) {
-            throw new IllegalStateException("Sender wallet is inactive.");
-        }
-
         User recipientUser = userRepository.findByPhoneNumber(request.getRecipientPhoneNumber())
                 .orElseThrow(() -> new IllegalArgumentException("Recipient not found with phone number: " + request.getRecipientPhoneNumber()));
 
@@ -161,19 +158,50 @@ public class WalletServiceImpl implements WalletService {
             throw new IllegalArgumentException("Cannot transfer money to yourself.");
         }
 
-        Wallet receiverWallet = walletRepository.findByUserId(recipientUser.getId())
+        // 2. Fetch un-locked Wallet references to identify Wallet Primary Keys (IDs) for ordering
+        Wallet un_lockedSenderWallet = walletRepository.findByUserId(senderUserId)
+                .orElseThrow(() -> new IllegalArgumentException("Sender wallet not found."));
+
+        Wallet un_lockedReceiverWallet = walletRepository.findByUserId(recipientUser.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Recipient wallet not found."));
+
+        Long senderWalletId = un_lockedSenderWallet.getId();
+        Long receiverWalletId = un_lockedReceiverWallet.getId();
+
+        // 3. DETERMINISTIC LOCK ORDERING (Deadlock Prevention)
+        // Always acquire the lock on the lower Wallet ID first
+        Long firstLockWalletId = senderWalletId.compareTo(receiverWalletId) < 0 ? senderWalletId : receiverWalletId;
+        Long secondLockWalletId = senderWalletId.compareTo(receiverWalletId) < 0 ? receiverWalletId : senderWalletId;
+
+        log.info("Pessimistically locking wallets in order: Wallet ID {} -> Wallet ID {}", firstLockWalletId, secondLockWalletId);
+
+        Wallet firstWallet = walletRepository.findByIdForUpdate(firstLockWalletId)
+                .orElseThrow(() -> new IllegalArgumentException("Wallet not found with ID: " + firstLockWalletId));
+
+        Wallet secondWallet = walletRepository.findByIdForUpdate(secondLockWalletId)
+                .orElseThrow(() -> new IllegalArgumentException("Wallet not found with ID: " + secondLockWalletId));
+
+        // Re-assign sender and receiver references from the locked instances
+        Wallet senderWallet = senderWalletId.equals(firstWallet.getId()) ? firstWallet : secondWallet;
+        Wallet receiverWallet = receiverWalletId.equals(firstWallet.getId()) ? firstWallet : secondWallet;
+
+        // 4. Validate Wallet Statuses
+        if (senderWallet.getStatus() != WalletStatus.ACTIVE) {
+            throw new IllegalStateException("Sender wallet is inactive.");
+        }
 
         if (receiverWallet.getStatus() != WalletStatus.ACTIVE) {
             throw new IllegalStateException("Recipient wallet is inactive.");
         }
 
+        // 5. Validate Balances & Tiered Limits
         if (senderWallet.getBalance().compareTo(request.getAmount()) < 0) {
             throw new IllegalArgumentException("Insufficient wallet balance.");
         }
 
         limitValidator.validateTieredLimits(senderUser, senderWallet, request.getAmount());
-        // Perform balance update
+
+        // 6. Perform Balance Updates Safely
         senderWallet.setBalance(senderWallet.getBalance().subtract(request.getAmount()));
         receiverWallet.setBalance(receiverWallet.getBalance().add(request.getAmount()));
 
@@ -192,6 +220,7 @@ public class WalletServiceImpl implements WalletService {
                 String.format("Transferred %s to phone %s", request.getAmount(), request.getRecipientPhoneNumber()),
                 httpServletRequest
         );
+
         // Publish Notification Event for Sender (Debit)
         eventPublisher.publishEvent(new WalletTransactionEvent(
                 senderUser.getId(),
