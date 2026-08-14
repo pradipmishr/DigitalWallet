@@ -15,11 +15,14 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -32,7 +35,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class AuthServiceImpl implements AuthService {
 
     private final AuthenticationManager authenticationManager;
-
+    private final LoginAttemptService loginAttemptService;
     private final JwtUtil jwtUtil;
     private final UserRepository userRepository;
     private final OtpService otpService;
@@ -47,25 +50,63 @@ public class AuthServiceImpl implements AuthService {
 
     private record ResetTokenInfo(String email, LocalDateTime expiresAt) {}
 
-    public LoginResponse login(LoginRequest request) {
+//    public LoginResponse login(LoginRequest request) {
+//
+//        Authentication authentication =
+//                authenticationManager.authenticate(
+//                        new UsernamePasswordAuthenticationToken(
+//                                request.getPhoneNumber(),
+//                                request.getPassword()
+//                        )
+//                );
+//
+//        UserPrincipal principal =
+//                (UserPrincipal) authentication.getPrincipal();
+//
+//        User user = principal.getUser();
+//
+//        String token = jwtUtil.generateToken(principal);
+//
+//        return UserMapper.toLoginResponse(user, token);
+//    }
+public LoginResponse login(LoginRequest request) {
+    String phoneNumber = request.getPhoneNumber();
 
-        Authentication authentication =
-                authenticationManager.authenticate(
-                        new UsernamePasswordAuthenticationToken(
-                                request.getPhoneNumber(),
-                                request.getPassword()
-                        )
-                );
+    // 1. Check if the user is currently locked out in Redis
+    if (loginAttemptService.isBlocked(phoneNumber)) {
+        long remainingSeconds = loginAttemptService.getRemainingLockoutTimeSeconds(phoneNumber);
+        long remainingMinutes = (long) Math.ceil(remainingSeconds / 60.0);
 
-        UserPrincipal principal =
-                (UserPrincipal) authentication.getPrincipal();
+        throw new ResponseStatusException(
+                HttpStatus.TOO_MANY_REQUESTS,
+                "Too many failed login attempts. Account locked for " + remainingMinutes + " minute(s)."
+        );
+    }
 
+    try {
+        // 2. Attempt authentication
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        phoneNumber,
+                        request.getPassword()
+                )
+        );
+
+        // 3. Clear failed attempts on successful login
+        loginAttemptService.loginSucceeded(phoneNumber);
+
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         User user = principal.getUser();
-
         String token = jwtUtil.generateToken(principal);
 
         return UserMapper.toLoginResponse(user, token);
+
+    } catch (BadCredentialsException ex) {
+        // 4. Increment failed attempt counter in Redis
+        loginAttemptService.loginFailed(phoneNumber);
+        throw ex;
     }
+}
     @Override
     public void initiateForgotPassword(ForgotPasswordRequest request) {
         User user = userRepository.findByEmail(request.getEmail())

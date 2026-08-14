@@ -17,6 +17,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
 import java.util.stream.Collectors;
@@ -102,6 +103,13 @@ public class GlobalExceptionHandler {
         return ErrorResponse.buildErrorResponse(
                 "Endpoint not found",
                 HttpStatus.NOT_FOUND
+        );
+    }
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ResponseWrapper<String>> handleResponseStatusException(ResponseStatusException ex) {
+        return ErrorResponse.buildErrorResponse(
+                ex.getReason() != null ? ex.getReason() : ex.getMessage(),
+                HttpStatus.valueOf(ex.getStatusCode().value())
         );
     }
 

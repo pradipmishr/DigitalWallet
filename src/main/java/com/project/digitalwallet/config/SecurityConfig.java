@@ -2,10 +2,13 @@ package com.project.digitalwallet.config;
 
 import com.project.digitalwallet.security.JwtAuthFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationEventPublisher;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.DefaultAuthenticationEventPublisher;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -42,7 +45,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/**").permitAll()
-                        .requestMatchers("/ws-notifications/**").permitAll() // Permit Handshake GET
+                        .requestMatchers("/ws-notifications/**").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .requestMatchers("/user/**").hasRole("USER")
                         .requestMatchers("/scheduled-payments/**").hasRole("USER")
@@ -58,21 +61,30 @@ public class SecurityConfig {
                         exception.authenticationEntryPoint(authenticationEntryPoint())
                 )
                 .authenticationProvider(authenticationProvider)
-                .addFilterBefore(
-                        jwtAuthFilter,
-                        UsernamePasswordAuthenticationFilter.class
-                );
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
-    @Bean
-    public AuthenticationManager authenticationManager(
-            AuthenticationConfiguration configuration
-    ) throws Exception {
-        return configuration.getAuthenticationManager();
-    }
 
+//    @Bean
+//    public AuthenticationManager authenticationManager(
+//            AuthenticationConfiguration configuration
+//    ) throws Exception {
+//        return configuration.getAuthenticationManager();
+//    }
+@Bean
+public AuthenticationManager authenticationManager(
+        AuthenticationConfiguration configuration,
+        AuthenticationEventPublisher eventPublisher) throws Exception {
+
+    // Configures AuthenticationManager to publish Spring Security success/failure events
+    AuthenticationManager authManager = configuration.getAuthenticationManager();
+    if (authManager instanceof org.springframework.security.authentication.ProviderManager providerManager) {
+        providerManager.setAuthenticationEventPublisher(eventPublisher);
+    }
+    return authManager;
+}
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -116,5 +128,9 @@ public class SecurityConfig {
         // Apply CORS config to all endpoints including WebSocket handshake paths
         source.registerCorsConfiguration("/**", configuration);
         return source;
+    }
+    @Bean
+    public AuthenticationEventPublisher authenticationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
+        return new DefaultAuthenticationEventPublisher(applicationEventPublisher);
     }
 }
