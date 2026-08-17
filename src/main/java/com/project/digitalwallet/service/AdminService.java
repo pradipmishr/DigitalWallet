@@ -13,10 +13,10 @@ public interface AdminService {
     Page<AuditLogDto> getAuditLogsByAction(String action, int page, int size);
     WalletDto freezeWalletByPhoneNumber(String phoneNumber);
     WalletDto unfreezeWalletByPhoneNumber(String phoneNumber);
-    public Page<AdminUserResponseDto> getAllUsers(int page, int size);
-    public Page<AdminUserResponseDto> searchUsers(String query, int page, int size);
+    Page<AdminUserResponseDto> getAllUsers(int page, int size);
+    Page<AdminUserResponseDto> searchUsers(String query, int page, int size);
     BigDecimal getGlobalDailyLimit();
-    public void resetUserTransactionPin(AdminResetPinRequest request);
+    void resetUserTransactionPin(AdminResetPinRequest request);
     void changeUserPassword(AdminChangePasswordRequest request);
 
 }
