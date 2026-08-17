@@ -1,5 +1,6 @@
 package com.project.digitalwallet.security;
 
+import com.project.digitalwallet.repository.BlacklistedTokenRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,6 +14,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+
 import java.io.IOException;
 
 @Slf4j
@@ -22,11 +24,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
     private final UserDetailsService userDetailsService;
+    private final BlacklistedTokenRepository blacklistedTokenRepository;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain filterChain)
+    protected void doFilterInternal(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain filterChain)
             throws ServletException, IOException {
 
         final String authHeader = request.getHeader("Authorization");
@@ -38,6 +42,14 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         try {
             String jwt = authHeader.substring(7);
+
+            // Check if token has been blacklisted
+            if (blacklistedTokenRepository.existsByToken(jwt)) {
+                log.warn("Attempt to use blacklisted JWT");
+                filterChain.doFilter(request, response);
+                return;
+            }
+
             String username = jwtUtil.extractUsername(jwt);
 
             if (username != null &&
@@ -57,7 +69,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
                     authToken.setDetails(
                             new WebAuthenticationDetailsSource()
-                                    .buildDetails(request));
+                                    .buildDetails(request)
+                    );
 
                     SecurityContextHolder.getContext()
                             .setAuthentication(authToken);
@@ -65,7 +78,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             }
 
         } catch (Exception e) {
-            log.error("Error processing JWT token in JwtAuthFilter: {}", e.getMessage());
+            log.error(
+                    "Error processing JWT token: {}",
+                    e.getMessage()
+            );
         }
 
         filterChain.doFilter(request, response);

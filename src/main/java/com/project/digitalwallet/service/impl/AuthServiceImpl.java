@@ -3,8 +3,10 @@ package com.project.digitalwallet.service.impl;
 import com.project.digitalwallet.common.enums.NotificationType;
 import com.project.digitalwallet.common.util.WalletTransactionEvent;
 import com.project.digitalwallet.dto.*;
+import com.project.digitalwallet.entity.BlacklistedToken;
 import com.project.digitalwallet.entity.User;
 import com.project.digitalwallet.mapper.UserMapper;
+import com.project.digitalwallet.repository.BlacklistedTokenRepository;
 import com.project.digitalwallet.repository.UserRepository;
 import com.project.digitalwallet.security.JwtUtil;
 import com.project.digitalwallet.security.UserPrincipal;
@@ -43,6 +45,8 @@ public class AuthServiceImpl implements AuthService {
     private final HttpServletRequest httpServletRequest;
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher eventPublisher;
+    private final BlacklistedTokenRepository blacklistedTokenRepository;
+
 
 
     // In-memory token store (Token -> ResetTokenInfo). For production clusters, persist this in DB or Redis.
@@ -188,4 +192,28 @@ public LoginResponse login(LoginRequest request) {
                 "Your account password has been reset successfully. If you did not perform this action, contact support immediately."
         ));
     }
+
+    @Override
+    public void logout(HttpServletRequest request) {
+
+        String authHeader = request.getHeader("Authorization");
+
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            throw new IllegalArgumentException("Authorization token is missing");
+        }
+
+        String jwt = authHeader.substring(7);
+
+        // Avoid duplicate tokens
+        if (!blacklistedTokenRepository.existsByToken(jwt)) {
+
+            BlacklistedToken blacklistedToken =
+                    new BlacklistedToken();
+
+            blacklistedToken.setToken(jwt);
+
+            blacklistedTokenRepository.save(blacklistedToken);
+        }
+    }
+
 }

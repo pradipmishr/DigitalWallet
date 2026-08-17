@@ -5,10 +5,12 @@ import com.project.digitalwallet.dto.*;
 import com.project.digitalwallet.service.AuthService;
 import com.project.digitalwallet.service.OtpService;
 import com.project.digitalwallet.service.UserService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+
 
 @RestController
 @RequiredArgsConstructor
@@ -89,6 +91,13 @@ public class AuthController {
         );
     }
 
+    @PostMapping("/logout")
+    public ResponseWrapper<?> logout(HttpServletRequest request) {
+
+        authService.logout(request);
+
+        return new ResponseWrapper<>(null,"Logout success",HttpStatus.OK.value(),true);
+    }
 }
 
 
