@@ -253,7 +253,7 @@ public class TransactionServiceImpl implements TransactionService {
         auditLogService.logEvent(
                 adminUserDto.getId(),
                 "ADMIN_TRANSACTION_REVERSAL",
-                String.format("Admin reversed Tx #%d (Amount: %s). Reason: %s", originalTx.getReferenceNumber(), amount, request.getReason()),
+                String.format("Admin reversed Tx #%s (Amount: %s). Reason: %s", originalTx.getReferenceNumber(), amount, request.getReason()),
                 httpServletRequest
         );
         if (senderWallet.getUser() != null) {
