@@ -366,64 +366,107 @@ class AdminControllerTest {
                 .searchTransactionsForAdmin(request);
     }
 
+//    @Test
+//    void searchTransactions_shouldReturnTransactionResult() {
+//        AdminTransactionSearchRequest request = mock(AdminTransactionSearchRequest.class);
+//        Page<TransactionDto> page = new PageImpl<>(List.of(mock(TransactionDto.class)));
+//
+//        when(transactionService.searchTransactionsForAdmin(request)).thenReturn(page);
+//
+//        ResponseWrapper<Page<TransactionDto>> response = adminController.searchTransactions(request);
+//
+//        assertNotNull(response);
+//        assertEquals(page,response.getData());
+//        assertEquals("Transactions fetched successfully",response.getMessage());
+//        assertEquals(200, response.getStatus());
+//        assertTrue(response.isSuccess());
+//
+//        verify(transactionService).searchTransactionsForAdmin(request);
+//    }
 
     // =========================================================
     // Reverse Transaction
     // =========================================================
 
+//    @Test
+//    void reverseTransaction_shouldCallServiceAndReturnResult() {
+//
+//        UserPrincipal adminPrincipal =
+//                mock(UserPrincipal.class);
+//
+//        AdminReverseTransactionRequest request =
+//                mock(AdminReverseTransactionRequest.class);
+//
+//        UserDto adminUserDto =
+//                mock(UserDto.class);
+//
+//        TransactionDto transactionDto =
+//                mock(TransactionDto.class);
+//
+//        when(transactionService.reverseTransaction(
+//                adminUserDto,
+//                request
+//        )).thenReturn(transactionDto);
+//
+//        /*
+//         * UserMapper.toUserDto(...) is static.
+//         * Mock it only for this test.
+//         */
+//        try (MockedStatic<UserMapper> userMapper =
+//                     Mockito.mockStatic(UserMapper.class)) {
+//
+//            userMapper.when(() ->
+//                    UserMapper.toUserDto(adminPrincipal.getUser())
+//            ).thenReturn(adminUserDto);
+//
+//            ResponseWrapper<TransactionDto> response =
+//                    adminController.reverseTransaction(
+//                            adminPrincipal,
+//                            request
+//                    );
+//
+//            assertNotNull(response);
+//            assertEquals(transactionDto, response.getData());
+//            assertEquals(
+//                    "Transaction reversed successfully.",
+//                    response.getMessage()
+//            );
+//            assertEquals(200, response.getStatus());
+//            assertTrue(response.isSuccess());
+//
+//            verify(transactionService)
+//                    .reverseTransaction(adminUserDto, request);
+//        }
+//    }
     @Test
     void reverseTransaction_shouldCallServiceAndReturnResult() {
+        UserPrincipal userPrincipal = mock(UserPrincipal.class);
+        AdminReverseTransactionRequest request = mock(AdminReverseTransactionRequest.class);
+        UserDto userDto = mock(UserDto.class);
+        TransactionDto transactionDto = mock(TransactionDto.class);
 
-        UserPrincipal adminPrincipal =
-                mock(UserPrincipal.class);
+        when(transactionService.reverseTransaction(userDto, request)).thenReturn(transactionDto);
+        try (MockedStatic<UserMapper> userMapper = Mockito.mockStatic(UserMapper.class)) {
 
-        AdminReverseTransactionRequest request =
-                mock(AdminReverseTransactionRequest.class);
+            userMapper.when(() -> UserMapper.toUserDto(userPrincipal.getUser())).thenReturn(userDto);
 
-        UserDto adminUserDto =
-                mock(UserDto.class);
-
-        TransactionDto transactionDto =
-                mock(TransactionDto.class);
-
-        when(transactionService.reverseTransaction(
-                adminUserDto,
-                request
-        )).thenReturn(transactionDto);
-
-        /*
-         * UserMapper.toUserDto(...) is static.
-         * Mock it only for this test.
-         */
-        try (MockedStatic<UserMapper> userMapper =
-                     Mockito.mockStatic(UserMapper.class)) {
-
-            userMapper.when(() ->
-                    UserMapper.toUserDto(adminPrincipal.getUser())
-            ).thenReturn(adminUserDto);
-
-            ResponseWrapper<TransactionDto> response =
-                    adminController.reverseTransaction(
-                            adminPrincipal,
-                            request
-                    );
+            ResponseWrapper<TransactionDto> response = adminController.reverseTransaction(userPrincipal, request);
 
             assertNotNull(response);
             assertEquals(transactionDto, response.getData());
-            assertEquals(
-                    "Transaction reversed successfully.",
-                    response.getMessage()
-            );
+            assertEquals("Transaction reversed successfully.", response.getMessage());
             assertEquals(200, response.getStatus());
             assertTrue(response.isSuccess());
 
-            verify(transactionService)
-                    .reverseTransaction(adminUserDto, request);
+            verify(transactionService).reverseTransaction(userDto, request);
+
         }
     }
 
 
-    // =========================================================
+
+
+        // =========================================================
     // KYC - Get All
     // =========================================================
 
@@ -563,100 +606,129 @@ class AdminControllerTest {
 //    }
 //
 //
-//    @Test
-//    void getAllKycs_whenSortByBlank_shouldUseCreatedAt() {
-//
-//        Page<KycStatusResponse> page =
-//                new PageImpl<>();
-//
-//        ArgumentCaptor<Pageable> pageableCaptor =
-//                ArgumentCaptor.forClass(Pageable.class);
-//
-//        when(kycService.getAllKycs(
-//                isNull(),
-//                any(Pageable.class)
-//        )).thenReturn(page);
-//
-//        adminController.getAllKycs(
-//                null,
-//                0,
-//                10,
-//                "   ",
-//                "DESC"
-//        );
-//
-//        verify(kycService)
-//                .getAllKycs(
-//                        isNull(),
-//                        pageableCaptor.capture()
-//                );
-//
-//        Pageable pageable = pageableCaptor.getValue();
-//
-//        assertNotNull(
-//                pageable.getSort().getOrderFor("createdAt")
-//        );
-//    }
+    @Test
+    void getAllKycs_whenSortByBlank_shouldUseCreatedAt() {
+
+        Page<KycStatusResponse> page =
+                new PageImpl<>(List.of());
+
+        ArgumentCaptor<Pageable> pageableCaptor =
+                ArgumentCaptor.forClass(Pageable.class);
+
+        when(kycService.getAllKycs(
+                isNull(),
+                any(Pageable.class)
+        )).thenReturn(page);
+
+        adminController.getAllKycs(
+                null,
+                0,
+                10,
+                "   ",
+                "DESC"
+        );
+
+        verify(kycService)
+                .getAllKycs(
+                        isNull(),
+                        pageableCaptor.capture()
+                );
+
+        Pageable pageable = pageableCaptor.getValue();
+
+        assertNotNull(
+                pageable.getSort().getOrderFor("createdAt")
+        );
+    }
 
 
     // =========================================================
     // KYC - Get By ID
     // =========================================================
 
+//    @Test
+//    void getKycById_shouldReturnKyc() {
+//
+//        KycStatusResponse kyc =
+//                mock(KycStatusResponse.class);
+//
+//        when(kycService.getKycById(100L))
+//                .thenReturn(kyc);
+//
+//        ResponseEntity<ResponseWrapper<KycStatusResponse>> response =
+//                adminController.getKycById(100L);
+//
+//        assertEquals(200, response.getStatusCode().value());
+//        assertNotNull(response.getBody());
+//
+//        assertEquals(kyc, response.getBody().getData());
+//        assertEquals(
+//                "KYC record retrieved successfully.",
+//                response.getBody().getMessage()
+//        );
+//
+//        verify(kycService)
+//                .getKycById(100L);
+//    }
+
     @Test
     void getKycById_shouldReturnKyc() {
-
-        KycStatusResponse kyc =
-                mock(KycStatusResponse.class);
-
-        when(kycService.getKycById(100L))
-                .thenReturn(kyc);
-
-        ResponseEntity<ResponseWrapper<KycStatusResponse>> response =
-                adminController.getKycById(100L);
-
-        assertEquals(200, response.getStatusCode().value());
-        assertNotNull(response.getBody());
-
+        KycStatusResponse kyc = mock(KycStatusResponse.class);
+        when(kycService.getKycById(1L)).thenReturn(kyc);
+        ResponseEntity<ResponseWrapper<KycStatusResponse>> response = adminController.getKycById(1L);
         assertEquals(kyc, response.getBody().getData());
-        assertEquals(
-                "KYC record retrieved successfully.",
-                response.getBody().getMessage()
-        );
+        assertEquals("KYC record retrieved successfully.",response.getBody().getMessage());
+        assertEquals(200,response.getStatusCode().value());
+        assertTrue(response.getBody().isSuccess());
 
-        verify(kycService)
-                .getKycById(100L);
+        verify(kycService).getKycById(1L);
     }
+
 
 
     // =========================================================
     // KYC - Get By User ID
     // =========================================================
 
+//    @Test
+//    void getKycByUserIdForAdmin_shouldReturnKyc() {
+//
+//        KycStatusResponse kyc =
+//                mock(KycStatusResponse.class);
+//
+//        when(kycService.getKycByUserId(50L))
+//                .thenReturn(kyc);
+//
+//        ResponseEntity<ResponseWrapper<KycStatusResponse>> response =
+//                adminController.getKycByUserIdForAdmin(50L);
+//
+//        assertEquals(200, response.getStatusCode().value());
+//        assertNotNull(response.getBody());
+//
+//        assertEquals(kyc, response.getBody().getData());
+//
+//        assertEquals(
+//                "KYC record for target user retrieved successfully.",
+//                response.getBody().getMessage()
+//        );
+//
+//        verify(kycService)
+//                .getKycByUserId(50L);
+//    }
+
     @Test
-    void getKycByUserIdForAdmin_shouldReturnKyc() {
+    void getgetKycByUserIdForAdmin_shouldGetKyc(){
+        KycStatusResponse kyc = mock(KycStatusResponse.class);
+        when(kycService.getKycByUserId(1L)).thenReturn(kyc);
+        ResponseEntity<ResponseWrapper<KycStatusResponse>> response = adminController.getKycByUserIdForAdmin(1L);
 
-        KycStatusResponse kyc =
-                mock(KycStatusResponse.class);
-
-        when(kycService.getKycByUserId(50L))
-                .thenReturn(kyc);
-
-        ResponseEntity<ResponseWrapper<KycStatusResponse>> response =
-                adminController.getKycByUserIdForAdmin(50L);
-
-        assertEquals(200, response.getStatusCode().value());
+        assertEquals(kyc,response.getBody().getData());
+        assertEquals("KYC record for target user retrieved successfully.",response.getBody().getMessage());
         assertNotNull(response.getBody());
+        assertEquals(200,response.getStatusCode().value());
+        assertTrue(response.getBody().isSuccess());
 
-        assertEquals(kyc, response.getBody().getData());
-
-        assertEquals(
-                "KYC record for target user retrieved successfully.",
-                response.getBody().getMessage()
-        );
-
-        verify(kycService)
-                .getKycByUserId(50L);
+        verify(kycService).getKycByUserId(1L);
     }
 
 
@@ -664,32 +736,48 @@ class AdminControllerTest {
     // KYC - Review
     // =========================================================
 
+//    @Test
+//    void reviewKyc_shouldCallServiceAndReturnResponse() {
+//
+//        ReviewKycRequest request =
+//                mock(ReviewKycRequest.class);
+//
+//        KycStatusResponse kyc =
+//                mock(KycStatusResponse.class);
+//
+//        when(kycService.reviewKyc(10L, request))
+//                .thenReturn(kyc);
+//
+//        ResponseEntity<ResponseWrapper<KycStatusResponse>> response =
+//                adminController.reviewKyc(10L, request);
+//
+//        assertEquals(200, response.getStatusCode().value());
+//        assertNotNull(response.getBody());
+//
+//        assertEquals(kyc, response.getBody().getData());
+//
+//        assertEquals(
+//                "KYC application reviewed successfully.",
+//                response.getBody().getMessage()
+//        );
+//
+//        verify(kycService)
+//                .reviewKyc(10L, request);
+//    }
     @Test
     void reviewKyc_shouldCallServiceAndReturnResponse() {
+        ReviewKycRequest request = mock(ReviewKycRequest.class);
+        KycStatusResponse kyc = mock(KycStatusResponse.class);
 
-        ReviewKycRequest request =
-                mock(ReviewKycRequest.class);
-
-        KycStatusResponse kyc =
-                mock(KycStatusResponse.class);
-
-        when(kycService.reviewKyc(10L, request))
-                .thenReturn(kyc);
-
-        ResponseEntity<ResponseWrapper<KycStatusResponse>> response =
-                adminController.reviewKyc(10L, request);
-
-        assertEquals(200, response.getStatusCode().value());
-        assertNotNull(response.getBody());
+        when(kycService.reviewKyc(1L,request)).thenReturn(kyc);
+        ResponseEntity<ResponseWrapper<KycStatusResponse>> response = adminController.reviewKyc(1L,request);
 
         assertEquals(kyc, response.getBody().getData());
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals("KYC application reviewed successfully.", response.getBody().getMessage());
+        assertTrue(response.getBody().isSuccess());
 
-        assertEquals(
-                "KYC application reviewed successfully.",
-                response.getBody().getMessage()
-        );
-
-        verify(kycService)
-                .reviewKyc(10L, request);
+        verify(kycService).reviewKyc(1L,request);
     }
+
 }
