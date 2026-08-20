@@ -4,16 +4,7 @@ import com.project.digitalwallet.dto.WalletDto;
 import com.project.digitalwallet.entity.Wallet;
 
 public class WalletMapper {
-//    public static WalletDto toWalletDto(Wallet wallet){
-//        if (wallet == null) {
-//            return null; // Return null safely if user doesn't have a wallet yet
-//        }
-//        WalletDto walletDto = new WalletDto();
-//        walletDto.setId(wallet.getId());
-//        walletDto.setBalance(wallet.getBalance());
-//        walletDto.setStatus(wallet.getStatus());
-//        return walletDto;
-//    }
+
     public static WalletDto toWalletDto(Wallet wallet) {
         if (wallet == null) {
             return null;
