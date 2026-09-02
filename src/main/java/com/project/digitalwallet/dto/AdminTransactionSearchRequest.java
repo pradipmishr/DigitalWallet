@@ -9,7 +9,6 @@ public class AdminTransactionSearchRequest {
     private String senderPhoneNumber;
     private String receiverPhoneNumber;
     private LocalDate date; // Searches for transactions created on this specific day
-
     private int page = 0;
     private int size = 20;
 }

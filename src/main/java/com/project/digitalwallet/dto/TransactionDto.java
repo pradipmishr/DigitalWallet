@@ -13,8 +13,6 @@ public class TransactionDto {
     private TransactionType type;
     private TransactionStatus status;
     private BigDecimal amount;
-
-
     private String senderName;
     private String senderPhoneNumber;
     private String receiverName;

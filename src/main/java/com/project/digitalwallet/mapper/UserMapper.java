@@ -1,10 +1,13 @@
 package com.project.digitalwallet.mapper;
 
-import com.project.digitalwallet.dto.LoginResponse;
-import com.project.digitalwallet.dto.UserDto;
+import com.project.digitalwallet.dto.*;
+import com.project.digitalwallet.entity.Address;
+import com.project.digitalwallet.entity.KycDetails;
 import com.project.digitalwallet.entity.User;
+import com.project.digitalwallet.entity.Wallet;
 
 import java.util.List;
+import java.util.Map;
 
 public class UserMapper {
     public static UserDto toUserDto(User user){
@@ -40,6 +43,80 @@ public class UserMapper {
                 .map(UserMapper::toUserEntity)
                 .toList();
     }
+//    public static UserByIdDto toUserByIdDto(User user, KycDetails kycDetails, Wallet wallet, List<TransactionDto> transactionDtos){
+//        String fullName = (user.getFirstName() != null ? user.getFirstName() : "") +
+//                " " +
+//                (user.getLastName() != null ? user.getLastName() : "");;
+//        Address address = user.getAddress();
+//        AddressDto addressDto = null;
+//
+//        if (address != null) {
+//            addressDto = AddressDto.builder()
+//                    .city(address.getCity())
+//                    .state(address.getState())
+//                    .zipCode(address.getZipCode())
+//                    .street(address.getStreet())
+//                    .build();
+//        }
+//        return UserByIdDto.builder()
+//                .id(user.getId())
+//                .fullName(fullName)
+//                .kycStatus(kycDetails.getStatus())
+//                .walletStatus(wallet.getStatus())
+//                .email(user.getEmail())
+//                .address(addressDto)
+//                .dateOfBirth(user.getDateOfBirth())
+//                .createdAt(user.getCreatedAt())
+//                .phoneNumber(user.getPhoneNumber())
+//                .transactions(transactionDtos)
+//                .build();
+//    }
+
+    public static UserByIdDto toUserByIdDto(
+            User user,
+            KycDetails kycDetails,
+            Wallet wallet,
+            Map<String, List<TransactionDto>> transactions
+    ) {
+
+        String fullName =
+                java.util.stream.Stream.of(
+                                user.getFirstName(),
+                                user.getLastName()
+                        )
+                        .filter(java.util.Objects::nonNull)
+                        .filter(name -> !name.isBlank())
+                        .collect(java.util.stream.Collectors.joining(" "));
+
+        Address address = user.getAddress();
+
+        AddressDto addressDto = null;
+
+        if (address != null) {
+
+            addressDto = AddressDto.builder()
+                    .city(address.getCity())
+                    .state(address.getState())
+                    .zipCode(address.getZipCode())
+                    .street(address.getStreet())
+                    .build();
+        }
+
+        return UserByIdDto.builder()
+                .id(user.getId())
+                .fullName(fullName)
+                .kycStatus(kycDetails.getStatus())
+                .walletStatus(wallet.getStatus())
+                .email(user.getEmail())
+                .phoneNumber(user.getPhoneNumber())
+                .address(addressDto)
+                .dateOfBirth(user.getDateOfBirth())
+                .createdAt(user.getCreatedAt())
+                .transactions(transactions)
+                .build();
+    }
+
+
     public static LoginResponse toLoginResponse(User user, String token) {
 
         return LoginResponse.builder()
