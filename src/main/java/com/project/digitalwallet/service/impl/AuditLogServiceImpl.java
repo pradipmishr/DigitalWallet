@@ -59,6 +59,4 @@ public class AuditLogServiceImpl implements AuditLogService {
             log.error("Failed to save audit log for action: {}", action, e);
         }
     }
-
-
 }

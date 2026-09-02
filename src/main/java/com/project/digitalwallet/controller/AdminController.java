@@ -75,6 +75,7 @@ public class AdminController {
                 true
         );
     }
+
     @PutMapping("/users/reset-pin")
     public ResponseWrapper<String> resetUserPin(@Valid @RequestBody AdminResetPinRequest request) {
         adminService.resetUserTransactionPin(request);

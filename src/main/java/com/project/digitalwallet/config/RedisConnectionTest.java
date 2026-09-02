@@ -52,7 +52,7 @@ public class RedisConnectionTest implements CommandLineRunner {
             );
 
         } catch (Exception e) {
-            log.error("Failed to connect to Redis", e);
+            log.warn("Failed to connect to Redis, running without it");
         }
     }
 }

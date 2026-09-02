@@ -13,6 +13,7 @@ public class UserMapper {
         userDto.setFirstName(user.getFirstName());
         userDto.setLastName(user.getLastName());
         userDto.setEmail(user.getEmail());
+        userDto.setDateOfBirth(user.getDateOfBirth());
         userDto.setWallet(WalletMapper.toWalletDto(user.getWallet()));
         userDto.setPhoneNumber(user.getPhoneNumber());
         return userDto;
@@ -29,6 +30,7 @@ public class UserMapper {
         user.setFirstName(userDto.getFirstName());
         user.setLastName(userDto.getLastName());
         user.setEmail(userDto.getEmail());
+        user.setDateOfBirth(userDto.getDateOfBirth());
         user.setWallet(WalletMapper.toWalletEntity(userDto.getWallet()));
         user.setPhoneNumber(userDto.getPhoneNumber());
         return user;

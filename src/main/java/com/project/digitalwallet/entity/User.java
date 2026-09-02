@@ -4,6 +4,8 @@ import com.project.digitalwallet.common.enums.UserRole;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.Date;
+
 @Entity
 @Table(name = "users")
 @Getter
@@ -24,8 +26,11 @@ public class User extends BaseEntity {
    @Column(nullable = false)
     private String password;
 
+   private Date dateOfBirth;
+
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
     private Wallet wallet;
+
     @Enumerated(EnumType.STRING)
     private UserRole role = UserRole.USER;  //default user
 

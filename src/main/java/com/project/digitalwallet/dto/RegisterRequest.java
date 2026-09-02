@@ -5,6 +5,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 
+import java.util.Date;
+
 @Data
 public class RegisterRequest {
 
@@ -17,6 +19,9 @@ public class RegisterRequest {
     @NotBlank(message = "Email is required")
     @Email(message = "Invalid email format")
     private String email;
+
+    @NotBlank(message = "Date of birth is required")
+    private Date dateOfBirth;
 
     @NotBlank(message = "Phone number is required")
     @Pattern(
