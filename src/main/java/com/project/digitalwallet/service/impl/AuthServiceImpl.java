@@ -54,25 +54,6 @@ public class AuthServiceImpl implements AuthService {
 
     private record ResetTokenInfo(String email, LocalDateTime expiresAt) {}
 
-//    public LoginResponse login(LoginRequest request) {
-//
-//        Authentication authentication =
-//                authenticationManager.authenticate(
-//                        new UsernamePasswordAuthenticationToken(
-//                                request.getPhoneNumber(),
-//                                request.getPassword()
-//                        )
-//                );
-//
-//        UserPrincipal principal =
-//                (UserPrincipal) authentication.getPrincipal();
-//
-//        User user = principal.getUser();
-//
-//        String token = jwtUtil.generateToken(principal);
-//
-//        return UserMapper.toLoginResponse(user, token);
-//    }
 public LoginResponse login(LoginRequest request) {
     String phoneNumber = request.getPhoneNumber();
 
@@ -117,7 +98,7 @@ public LoginResponse login(LoginRequest request) {
                 .orElseThrow(() -> new IllegalArgumentException("User not found with email: " + request.getEmail()));
 
         // Generates 6-digit OTP, sets 5-min expiry, saves to DB, sends email
-        otpService.sendOtp(user.getEmail());
+        otpService.sendRegistrationOtp(user.getEmail());
 
         auditLogService.logEvent(
                 user.getId(),
@@ -131,7 +112,7 @@ public LoginResponse login(LoginRequest request) {
     @Transactional
     public VerifyResetOtpResponse verifyResetOtp(VerifyResetOtpRequest request) {
         // 1. Verify OTP (validates correctness, expiry, and unverified state)
-        otpService.verifyOtp(request.getEmail(), request.getOtp());
+        otpService.verifyRegistrationOtp(request.getEmail(), request.getOtp());
 
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("User not found with email: " + request.getEmail()));

@@ -1,7 +1,34 @@
 package com.project.digitalwallet.service;
 
 public interface OtpService {
-    void sendOtp(String phoneNumber);
-    void resendOtp(String email);
-    boolean verifyOtp(String phoneNumber, String otp);
+
+    /*
+     * Registration OTP
+     */
+    void sendRegistrationOtp(String email);
+
+    boolean verifyRegistrationOtp(
+            String email,
+            String code
+    );
+    void resendRegistrationOtp(
+            String email
+    );
+
+    /*
+     * PIN reset OTP
+     */
+    void sendPinResetOtp(
+            Long userId,
+            String email
+    );
+
+    boolean verifyPinResetOtp(
+            String email,
+            String code
+    );
+
+    void resendPinResetOtp(
+            String email
+    );
 }
