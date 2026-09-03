@@ -3,8 +3,7 @@ package com.project.digitalwallet.entity;
 import com.project.digitalwallet.common.enums.UserRole;
 import jakarta.persistence.*;
 import lombok.*;
-
-import java.util.Date;
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "users")
@@ -26,7 +25,7 @@ public class User extends BaseEntity {
    @Column(nullable = false)
     private String password;
 
-   private Date dateOfBirth;
+    private LocalDate dateOfBirth;
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
     private Wallet wallet;
@@ -40,4 +39,11 @@ public class User extends BaseEntity {
     }
     @Column(nullable = true)
     private String transactionPin;
+
+    @OneToOne(
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
+    @JoinColumn(name = "address_id")
+    private Address address;
 }

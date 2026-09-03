@@ -17,6 +17,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -27,193 +28,462 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.Map;
+import java.time.Duration;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
     private final AuthenticationManager authenticationManager;
+
     private final LoginAttemptService loginAttemptService;
+
     private final JwtUtil jwtUtil;
+
     private final UserRepository userRepository;
+
     private final OtpService otpService;
+
     private final AuditLogService auditLogService;
+
     private final HttpServletRequest httpServletRequest;
+
     private final PasswordEncoder passwordEncoder;
+
     private final ApplicationEventPublisher eventPublisher;
+
     private final BlacklistedTokenRepository blacklistedTokenRepository;
 
+    private final StringRedisTemplate redisTemplate;
 
 
-    // In-memory token store (Token -> ResetTokenInfo). For production clusters, persist this in DB or Redis.
-    private final Map<String, ResetTokenInfo> resetTokenStore = new ConcurrentHashMap<>();
+    /*
+     * =========================================================
+     * PASSWORD RESET TOKEN
+     * =========================================================
+     *
+     * Redis key:
+     *
+     * reset-password:token:<token>
+     *
+     * Redis value:
+     *
+     * user email
+     *
+     * Expiry:
+     *
+     * 10 minutes
+     */
+    private static final String RESET_TOKEN_PREFIX =
+            "reset-password:token:";
 
-    private record ResetTokenInfo(String email, LocalDateTime expiresAt) {}
+    private static final Duration RESET_TOKEN_EXPIRY =
+            Duration.ofMinutes(10);
 
-//    public LoginResponse login(LoginRequest request) {
-//
-//        Authentication authentication =
-//                authenticationManager.authenticate(
-//                        new UsernamePasswordAuthenticationToken(
-//                                request.getPhoneNumber(),
-//                                request.getPassword()
-//                        )
-//                );
-//
-//        UserPrincipal principal =
-//                (UserPrincipal) authentication.getPrincipal();
-//
-//        User user = principal.getUser();
-//
-//        String token = jwtUtil.generateToken(principal);
-//
-//        return UserMapper.toLoginResponse(user, token);
-//    }
-public LoginResponse login(LoginRequest request) {
-    String phoneNumber = request.getPhoneNumber();
 
-    // 1. Check if the user is currently locked out in Redis
-    if (loginAttemptService.isBlocked(phoneNumber)) {
-        long remainingSeconds = loginAttemptService.getRemainingLockoutTimeSeconds(phoneNumber);
-        long remainingMinutes = (long) Math.ceil(remainingSeconds / 60.0);
+    // =========================================================
+    // LOGIN
+    // =========================================================
 
-        throw new ResponseStatusException(
-                HttpStatus.TOO_MANY_REQUESTS,
-                "Too many failed login attempts. Account locked for " + remainingMinutes + " minute(s)."
-        );
-    }
-
-    try {
-        // 2. Attempt authentication
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        phoneNumber,
-                        request.getPassword()
-                )
-        );
-
-        // 3. Clear failed attempts on successful login
-        loginAttemptService.loginSucceeded(phoneNumber);
-
-        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
-        User user = principal.getUser();
-        String token = jwtUtil.generateToken(principal);
-
-        return UserMapper.toLoginResponse(user, token);
-
-    } catch (BadCredentialsException ex) {
-        // 4. Increment failed attempt counter in Redis
-        loginAttemptService.loginFailed(phoneNumber);
-        throw ex;
-    }
-}
     @Override
-    public void initiateForgotPassword(ForgotPasswordRequest request) {
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("User not found with email: " + request.getEmail()));
+    public LoginResponse login(LoginRequest request) {
 
-        // Generates 6-digit OTP, sets 5-min expiry, saves to DB, sends email
-        otpService.sendOtp(user.getEmail());
+        String phoneNumber =
+                request.getPhoneNumber();
+
+
+        /*
+         * Check whether the account is currently blocked.
+         */
+        if (loginAttemptService.isBlocked(phoneNumber)) {
+
+            long remainingSeconds =
+                    loginAttemptService
+                            .getRemainingLockoutTimeSeconds(
+                                    phoneNumber
+                            );
+
+            long remainingMinutes =
+                    (long) Math.ceil(
+                            remainingSeconds / 60.0
+                    );
+
+            throw new ResponseStatusException(
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "Too many failed login attempts. Account locked for "
+                            + remainingMinutes
+                            + " minute(s)."
+            );
+        }
+
+
+        try {
+
+            /*
+             * Authenticate user.
+             */
+            Authentication authentication =
+                    authenticationManager.authenticate(
+                            new UsernamePasswordAuthenticationToken(
+                                    phoneNumber,
+                                    request.getPassword()
+                            )
+                    );
+
+
+            /*
+             * Login successful.
+             *
+             * Clear failed login attempts.
+             */
+            loginAttemptService.loginSucceeded(
+                    phoneNumber
+            );
+
+
+            UserPrincipal principal =
+                    (UserPrincipal)
+                            authentication.getPrincipal();
+
+
+            User user =
+                    principal.getUser();
+
+
+            String token =
+                    jwtUtil.generateToken(
+                            principal
+                    );
+
+
+            return UserMapper.toLoginResponse(
+                    user,
+                    token
+            );
+
+        } catch (BadCredentialsException ex) {
+
+            /*
+             * Login failed.
+             *
+             * Increment failed attempts in Redis.
+             */
+            loginAttemptService.loginFailed(
+                    phoneNumber
+            );
+
+            throw ex;
+        }
+    }
+
+
+    // =========================================================
+    // FORGOT PASSWORD - SEND OTP
+    // =========================================================
+
+    @Override
+    public void initiateForgotPassword(
+            ForgotPasswordRequest request
+    ) {
+
+        String email =
+                request.getEmail()
+                        .trim()
+                        .toLowerCase();
+
+
+        /*
+         * Find user.
+         */
+        User user =
+                userRepository.findByEmail(email)
+                        .orElseThrow(() ->
+                                new IllegalArgumentException(
+                                        "User not found with email: "
+                                                + email
+                                )
+                        );
+
+
+        /*
+         * Generate and send forgot-password OTP.
+         *
+         * OtpService is responsible for:
+         *
+         * - generating OTP
+         * - hashing OTP
+         * - storing OTP in Redis
+         * - storing attempts in Redis
+         * - 3-attempt limit
+         * - 60-second resend cooldown
+         * - OTP expiration
+         */
+        otpService.sendForgotPasswordOtp(
+                user.getId(),
+                email
+        );
+
 
         auditLogService.logEvent(
                 user.getId(),
                 "FORGOT_PASSWORD_REQUESTED",
-                "Password reset OTP sent to email: " + request.getEmail(),
+                "Password reset OTP sent to email: "
+                        + email,
                 httpServletRequest
         );
     }
 
+
+    // =========================================================
+    // FORGOT PASSWORD - RESEND OTP
+    // =========================================================
+
+    /*
+     * This method is optional in AuthService if your controller
+     * directly calls otpService.resendForgotPasswordOtp().
+     *
+     * You can keep the resend endpoint directly on OtpService.
+     */
+
+
+    // =========================================================
+    // FORGOT PASSWORD - VERIFY OTP
+    // =========================================================
+
     @Override
     @Transactional
-    public VerifyResetOtpResponse verifyResetOtp(VerifyResetOtpRequest request) {
-        // 1. Verify OTP (validates correctness, expiry, and unverified state)
-        otpService.verifyOtp(request.getEmail(), request.getOtp());
+    public VerifyResetOtpResponse verifyResetOtp(
+            VerifyResetOtpRequest request
+    ) {
 
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("User not found with email: " + request.getEmail()));
+        String email =
+                request.getEmail()
+                        .trim()
+                        .toLowerCase();
 
-        // 2. Generate short-lived reset token (valid for 10 minutes)
-        String resetToken = UUID.randomUUID().toString();
-        resetTokenStore.put(resetToken, new ResetTokenInfo(request.getEmail(), LocalDateTime.now().plusMinutes(10)));
+
+        /*
+         * Verify OTP.
+         *
+         * OtpService handles:
+         *
+         * - OTP existence
+         * - OTP expiration
+         * - OTP matching
+         * - maximum 3 attempts
+         * - deleting OTP after successful verification
+         */
+        otpService.verifyForgotPasswordOtp(
+                email,
+                request.getOtp()
+        );
+
+
+        /*
+         * Find user.
+         */
+        User user =
+                userRepository.findByEmail(email)
+                        .orElseThrow(() ->
+                                new IllegalArgumentException(
+                                        "User not found"
+                                )
+                        );
+
+
+        /*
+         * Generate a random reset token.
+         */
+        String resetToken =
+                UUID.randomUUID().toString();
+
+
+        /*
+         * Store reset token in Redis.
+         *
+         * Key:
+         *
+         * reset-password:token:<token>
+         *
+         * Value:
+         *
+         * email
+         *
+         * Expiry:
+         *
+         * 10 minutes
+         */
+        redisTemplate.opsForValue().set(
+                RESET_TOKEN_PREFIX + resetToken,
+                email,
+                RESET_TOKEN_EXPIRY
+        );
+
 
         auditLogService.logEvent(
                 user.getId(),
                 "RESET_OTP_VERIFIED",
-                "Password reset OTP verified successfully. Generated reset token.",
+                "Password reset OTP verified successfully. "
+                        + "Generated reset token.",
                 httpServletRequest
         );
 
-        return new VerifyResetOtpResponse(resetToken);
+
+        /*
+         * Return reset token to client.
+         */
+        return new VerifyResetOtpResponse(
+                resetToken
+        );
     }
+
+
+    // =========================================================
+    // RESET PASSWORD USING TOKEN
+    // =========================================================
 
     @Override
     @Transactional
-    public void resetPasswordWithToken(ResetPasswordWithTokenRequest request) {
-        String token = request.getResetToken();
-        ResetTokenInfo tokenInfo = resetTokenStore.get(token);
+    public void resetPasswordWithToken(
+            ResetPasswordWithTokenRequest request
+    ) {
 
-        // 1. Validate Token
-        if (tokenInfo == null) {
-            throw new IllegalArgumentException("Invalid or expired reset token.");
+        String token =
+                request.getResetToken();
+
+
+        String tokenKey =
+                RESET_TOKEN_PREFIX + token;
+
+
+        /*
+         * Get email associated with reset token.
+         *
+         * Redis automatically returns null if the token
+         * does not exist or has expired.
+         */
+        String email =
+                redisTemplate.opsForValue()
+                        .get(tokenKey);
+
+
+        /*
+         * Token doesn't exist or has expired.
+         */
+        if (email == null) {
+
+            throw new IllegalArgumentException(
+                    "Invalid or expired reset token."
+            );
         }
 
-        if (tokenInfo.expiresAt().isBefore(LocalDateTime.now())) {
-            resetTokenStore.remove(token);
-            throw new IllegalStateException("Reset token has expired. Please request a new password reset.");
-        }
 
-        // 2. Fetch User and update password
-        User user = userRepository.findByEmail(tokenInfo.email())
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        /*
+         * Find user.
+         */
+        User user =
+                userRepository.findByEmail(email)
+                        .orElseThrow(() ->
+                                new IllegalArgumentException(
+                                        "User not found"
+                                )
+                        );
 
-        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+
+        /*
+         * Update password.
+         */
+        user.setPassword(
+                passwordEncoder.encode(
+                        request.getNewPassword()
+                )
+        );
+
+
         userRepository.save(user);
 
-        // 3. Invalidate reset token immediately after use
-        resetTokenStore.remove(token);
 
+        /*
+         * Invalidate reset token immediately.
+         *
+         * This prevents the same token from being used
+         * again.
+         */
+        redisTemplate.delete(
+                tokenKey
+        );
+
+
+        /*
+         * Audit successful password reset.
+         */
         auditLogService.logEvent(
                 user.getId(),
                 "PASSWORD_RESET_SUCCESS",
                 "Password updated successfully using reset token.",
                 httpServletRequest
         );
-        eventPublisher.publishEvent(new WalletTransactionEvent(
-                user.getId(),
-                user.getPhoneNumber(),
-                NotificationType.SECURITY_ALERT, // or NotificationType.PASSWORD_RESET / NotificationType.SYSTEM_ALERT
-                BigDecimal.ZERO,
-                "NPR",
-                "PWD-" + System.currentTimeMillis(), // Unique security reference ID
-                "Your account password has been reset successfully. If you did not perform this action, contact support immediately."
-        ));
+
+
+        /*
+         * Send security notification.
+         */
+        eventPublisher.publishEvent(
+                new WalletTransactionEvent(
+                        user.getId(),
+                        user.getPhoneNumber(),
+                        NotificationType.SECURITY_ALERT,
+                        BigDecimal.ZERO,
+                        "NPR",
+                        "PWD-" + System.currentTimeMillis(),
+                        "Your account password has been reset successfully. "
+                                + "If you did not perform this action, contact support immediately."
+                )
+        );
     }
 
+
+    // =========================================================
+    // LOGOUT
+    // =========================================================
+
     @Override
-    public void logout(HttpServletRequest request) {
+    public void logout(
+            HttpServletRequest request
+    ) {
 
-        String authHeader = request.getHeader("Authorization");
+        String authHeader =
+                request.getHeader("Authorization");
 
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            throw new IllegalArgumentException("Authorization token is missing");
+
+        if (authHeader == null ||
+                !authHeader.startsWith("Bearer ")) {
+
+            throw new IllegalArgumentException(
+                    "Authorization token is missing"
+            );
         }
 
-        String jwt = authHeader.substring(7);
 
-        // Avoid duplicate tokens
-        if (!blacklistedTokenRepository.existsByToken(jwt)) {
+        String jwt =
+                authHeader.substring(7);
+
+
+        /*
+         * Avoid duplicate blacklisted tokens.
+         */
+        if (!blacklistedTokenRepository
+                .existsByToken(jwt)) {
 
             BlacklistedToken blacklistedToken =
                     new BlacklistedToken();
 
             blacklistedToken.setToken(jwt);
 
-            blacklistedTokenRepository.save(blacklistedToken);
+            blacklistedTokenRepository.save(
+                    blacklistedToken
+            );
         }
     }
-
 }

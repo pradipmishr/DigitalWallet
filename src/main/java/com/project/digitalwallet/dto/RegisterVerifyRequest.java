@@ -1,8 +1,7 @@
 package com.project.digitalwallet.dto;
 
-import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -13,7 +12,7 @@ public class RegisterVerifyRequest {
     @Size(min = 6, max = 6, message = "OTP must be 6 digits")
     private String otp;
 
-    @Valid
-    @NotNull(message = "User details are required")
-    private RegisterRequest registerRequest;
+    @NotBlank(message = "Email is required")
+    @Email(message = "Invalid email format")
+    private String email;
 }

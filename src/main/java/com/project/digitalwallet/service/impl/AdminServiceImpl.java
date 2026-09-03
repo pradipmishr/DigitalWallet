@@ -3,18 +3,16 @@ package com.project.digitalwallet.service.impl;
 
 import com.project.digitalwallet.common.enums.NotificationType;
 import com.project.digitalwallet.common.enums.WalletStatus;
+import com.project.digitalwallet.common.exception.ResourceNotFoundException;
 import com.project.digitalwallet.common.util.WalletTransactionEvent;
 import com.project.digitalwallet.dto.*;
-import com.project.digitalwallet.entity.AuditLog;
-import com.project.digitalwallet.entity.User;
-import com.project.digitalwallet.entity.Wallet;
+import com.project.digitalwallet.entity.*;
+import com.project.digitalwallet.mapper.UserMapper;
 import com.project.digitalwallet.mapper.WalletMapper;
-import com.project.digitalwallet.repository.AuditLogRepository;
-import com.project.digitalwallet.repository.TransactionRepository;
-import com.project.digitalwallet.repository.UserRepository;
-import com.project.digitalwallet.repository.WalletRepository;
+import com.project.digitalwallet.repository.*;
 import com.project.digitalwallet.service.AdminService;
 import com.project.digitalwallet.service.AuditLogService;
+import com.project.digitalwallet.service.TransactionService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,7 +26,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.net.InetAddress;
-
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 
 @Service
@@ -43,6 +43,8 @@ public class AdminServiceImpl implements AdminService {
     private final HttpServletRequest httpServletRequest;
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher eventPublisher;
+    private final KycDetailsRepository kycDetailsRepository;
+    private final TransactionService transactionService;
 
     @Value("${wallet.default-daily-limit}")
     private BigDecimal globalDailyLimit;
@@ -164,13 +166,96 @@ public class AdminServiceImpl implements AdminService {
         return userRepository.findAll(pageable).map(this::mapToAdminUserResponseDto);
     }
 
+//    @Transactional(readOnly = true)
+//    @Override
+//    public UserByIdDto getUserById(Long id){
+//        User user = userRepository.findById(id)
+//                .orElseThrow(()->new ResourceNotFoundException("User not found."));
+//        KycDetails kycDetails = kycDetailsRepository.findByUserId(id)
+//                .orElseThrow(()->new ResourceNotFoundException("Kyc not found"));
+//        Wallet wallet = walletRepository.findByUserId(id)
+//                .orElseThrow(()->new ResourceNotFoundException("Wallet not found"));
+//        String phoneNumber = user.getPhoneNumber();
+//        AdminTransactionSearchRequest request1 = new AdminTransactionSearchRequest();
+//        AdminTransactionSearchRequest request2 = new AdminTransactionSearchRequest();
+//        request1.setReceiverPhoneNumber(phoneNumber);
+//        request2.setSenderPhoneNumber(phoneNumber);
+//        request1.setPage(0);
+//        request1.setSize(3);
+//        request2.setPage(0);
+//        request2.setSize(3);
+//        transactionService.searchTransactionsForAdmin(request1);
+//        transactionService.searchTransactionsForAdmin(request2);
+//        return UserMapper.toUserByIdDto(user,kycDetails,wallet,);
+//    }
+@Override
+@Transactional(readOnly = true)
+public UserByIdDto getUserById(Long id) {
+
+    User user = userRepository.findById(id)
+            .orElseThrow(() ->
+                    new ResourceNotFoundException("User not found.")
+            );
+
+    KycDetails kycDetails = kycDetailsRepository.findByUserId(id)
+            .orElseThrow(() ->
+                    new ResourceNotFoundException("Kyc not found")
+            );
+
+    Wallet wallet = walletRepository.findByUserId(id)
+            .orElseThrow(() ->
+                    new ResourceNotFoundException("Wallet not found")
+            );
+
+    String phoneNumber = user.getPhoneNumber();
+
+    // INCOMING
+    AdminTransactionSearchRequest incomingRequest =
+            new AdminTransactionSearchRequest();
+
+    incomingRequest.setReceiverPhoneNumber(phoneNumber);
+    incomingRequest.setPage(0);
+    incomingRequest.setSize(3);
+
+    Page<TransactionDto> incoming =
+            transactionService.searchTransactionsForAdmin(
+                    incomingRequest
+            );
+
+    // OUTGOING
+    AdminTransactionSearchRequest outgoingRequest =
+            new AdminTransactionSearchRequest();
+
+    outgoingRequest.setSenderPhoneNumber(phoneNumber);
+    outgoingRequest.setPage(0);
+    outgoingRequest.setSize(3);
+
+    Page<TransactionDto> outgoing =
+            transactionService.searchTransactionsForAdmin(
+                    outgoingRequest
+            );
+
+    // Group transactions
+    Map<String, List<TransactionDto>> transactions =
+            new HashMap<>();
+
+    transactions.put("incoming", incoming.getContent());
+    transactions.put("outgoing", outgoing.getContent());
+
+    return UserMapper.toUserByIdDto(
+            user,
+            kycDetails,
+            wallet,
+            transactions
+    );
+}
+
     @Transactional(readOnly = true)
     @Override
     public Page<AdminUserResponseDto> searchUsers(String query, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         return userRepository.searchUsers(query, pageable).map(this::mapToAdminUserResponseDto);
     }
-
 
     private AdminUserResponseDto mapToAdminUserResponseDto(User user) {
         Wallet wallet = walletRepository.findByUserId(user.getId()).orElse(null);

@@ -75,6 +75,15 @@ public class AdminController {
                 true
         );
     }
+    @GetMapping("/users/{id}")
+    public ResponseWrapper<UserByIdDto> getUserById(@PathVariable Long id){
+        return new ResponseWrapper<>(
+                adminService.getUserById(id),
+                "User retrieved",
+                HttpStatus.OK.value(),
+                true
+        );
+    }
 
     @PutMapping("/users/reset-pin")
     public ResponseWrapper<String> resetUserPin(@Valid @RequestBody AdminResetPinRequest request) {

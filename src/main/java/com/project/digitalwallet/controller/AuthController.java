@@ -31,7 +31,16 @@ public class AuthController {
                 true
         );
     }
-
+    @PostMapping("/resend-registration-otp")
+    public ResponseWrapper<String> resendOtp(@Valid @RequestBody ResendOtpRequest request) {
+        otpService.resendRegistrationOtp(request.getEmail());
+        return new ResponseWrapper<>(
+                "OTP resent successfully to " + request.getEmail(),
+                "OTP resent successfully",
+                HttpStatus.OK.value(),
+                true
+        );
+    }
     @PostMapping("/register/verify")
     public ResponseWrapper<UserDto> completeRegistration(@Valid @RequestBody RegisterVerifyRequest verifyRequest) {
         UserDto response = userService.completeRegistration(verifyRequest);
@@ -46,16 +55,7 @@ public class AuthController {
     public ResponseWrapper<LoginResponse> login(@RequestBody LoginRequest loginRequest){
         return new ResponseWrapper<>(authService.login(loginRequest),"Login Successful",HttpStatus.OK.value(), true);
     }
-    @PostMapping("/resend-otp")
-    public ResponseWrapper<String> resendOtp(@Valid @RequestBody ResendOtpRequest request) {
-        otpService.resendOtp(request.getEmail());
-        return new ResponseWrapper<>(
-                "OTP resent successfully to " + request.getEmail(),
-                "OTP resent successfully",
-                HttpStatus.OK.value(),
-                true
-        );
-    }
+
     @PostMapping("/forgot-password")
     public ResponseWrapper<String> initiateForgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         authService.initiateForgotPassword(request);
@@ -90,6 +90,21 @@ public class AuthController {
                 true
         );
     }
+    @PostMapping("/resend-forgot-password-otp")
+    public ResponseWrapper<String> resendForgotPasswordOtp(
+            @Valid @RequestBody ResendOtpRequest request
+    ) {
+        otpService.resendForgotPasswordOtp(request.getEmail());
+
+        return new ResponseWrapper<>(
+                "Password reset OTP resent successfully to "
+                        + request.getEmail(),
+                "OTP resent successfully",
+                HttpStatus.OK.value(),
+                true
+        );
+    }
+
 
     @PostMapping("/logout")
     public ResponseWrapper<?> logout(HttpServletRequest request) {

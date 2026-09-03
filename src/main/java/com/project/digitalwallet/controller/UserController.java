@@ -5,6 +5,7 @@ import com.project.digitalwallet.dto.*;
 import com.project.digitalwallet.entity.User;
 import com.project.digitalwallet.mapper.UserMapper;
 import com.project.digitalwallet.security.UserPrincipal;
+import com.project.digitalwallet.service.OtpService;
 import com.project.digitalwallet.service.TransactionService;
 import com.project.digitalwallet.service.UserService;
 import jakarta.validation.Valid;
@@ -29,6 +30,7 @@ import java.io.ByteArrayInputStream;
 public class UserController {
     private final UserService userService;
     private final TransactionService transactionService;
+    private final OtpService otpService;
 
     @PostMapping("/transaction-pin")
     public ResponseWrapper<String> setTransactionPin(
@@ -124,6 +126,29 @@ public class UserController {
                 true
         );
     }
+    @PostMapping("/resend-pin-otp")
+    public ResponseWrapper<String> resendPinOtp(
+            @AuthenticationPrincipal UserPrincipal userPrincipal
+    ) {
+
+        UserDto currentUserDto =
+                UserMapper.toUserDto(
+                        userPrincipal.getUser()
+                );
+
+        otpService.resendPinResetOtp(
+                currentUserDto.getEmail()
+        );
+
+        return new ResponseWrapper<>(
+                "PIN reset OTP resent successfully to "
+                        + currentUserDto.getEmail(),
+                "OTP resent successfully",
+                HttpStatus.OK.value(),
+                true
+        );
+    }
+
 
 
 
