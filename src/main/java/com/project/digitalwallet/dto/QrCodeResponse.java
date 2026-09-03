@@ -10,7 +10,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class QrCodeResponse {
-    private String fileName;
-    private String filePath;
+
     private String qrContent;
+
+    private String imageBase64;
 }

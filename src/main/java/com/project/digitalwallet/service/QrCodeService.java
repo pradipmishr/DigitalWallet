@@ -5,7 +5,8 @@ import com.project.digitalwallet.dto.ScanQrRequest;
 import com.project.digitalwallet.dto.ScanQrResponse;
 
 public interface QrCodeService {
-    QrCodeResponse generateAndSaveStaticQr(Long userId);
+
+    QrCodeResponse generateStaticQr(Long userId);
 
     ScanQrResponse parseAndValidateQr(ScanQrRequest request);
 }

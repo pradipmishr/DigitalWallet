@@ -20,21 +20,39 @@ public class QrCodeController {
 
     private final QrCodeService qrCodeService;
 
-    @PostMapping
+    @GetMapping
     public ResponseEntity<ResponseWrapper<QrCodeResponse>> generateStaticQr(
             @AuthenticationPrincipal UserPrincipal currentUser) {
 
-        QrCodeResponse response = qrCodeService.generateAndSaveStaticQr(currentUser.getUser().getId());
+        QrCodeResponse response =
+                qrCodeService.generateStaticQr(
+                        currentUser.getUser().getId()
+                );
 
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(new ResponseWrapper<>(response, "Static QR code generated successfully.", HttpStatus.CREATED.value(), true));
+        return ResponseEntity.ok(
+                new ResponseWrapper<>(
+                        response,
+                        "Static QR code generated successfully.",
+                        HttpStatus.OK.value(),
+                        true
+                )
+        );
     }
 
     @PostMapping("/scan")
     public ResponseEntity<ResponseWrapper<ScanQrResponse>> scanQr(
             @Valid @RequestBody ScanQrRequest request) {
 
-        ScanQrResponse response = qrCodeService.parseAndValidateQr(request);
-        return ResponseEntity.ok(new ResponseWrapper<>(response, "QR code scanned and validated successfully.", HttpStatus.OK.value(), true));
+        ScanQrResponse response =
+                qrCodeService.parseAndValidateQr(request);
+
+        return ResponseEntity.ok(
+                new ResponseWrapper<>(
+                        response,
+                        "QR code scanned and validated successfully.",
+                        HttpStatus.OK.value(),
+                        true
+                )
+        );
     }
 }
