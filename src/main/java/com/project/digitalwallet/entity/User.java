@@ -25,7 +25,7 @@ public class User extends BaseEntity {
    @Column(nullable = false)
     private String password;
 
-   private LocalDate dateOfBirth;
+    private LocalDate dateOfBirth;
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
     private Wallet wallet;
