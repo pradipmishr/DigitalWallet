@@ -90,6 +90,21 @@ public class AuthController {
                 true
         );
     }
+    @PostMapping("/resend-forgot-password-otp")
+    public ResponseWrapper<String> resendForgotPasswordOtp(
+            @Valid @RequestBody ResendOtpRequest request
+    ) {
+        otpService.resendForgotPasswordOtp(request.getEmail());
+
+        return new ResponseWrapper<>(
+                "Password reset OTP resent successfully to "
+                        + request.getEmail(),
+                "OTP resent successfully",
+                HttpStatus.OK.value(),
+                true
+        );
+    }
+
 
     @PostMapping("/logout")
     public ResponseWrapper<?> logout(HttpServletRequest request) {
