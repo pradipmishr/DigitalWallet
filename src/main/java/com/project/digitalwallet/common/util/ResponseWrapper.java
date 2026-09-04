@@ -12,5 +12,4 @@ public class ResponseWrapper<T> {
     String message;
     int status;
     boolean success;
-
 }

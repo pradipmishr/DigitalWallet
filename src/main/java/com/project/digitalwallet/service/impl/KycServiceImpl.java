@@ -7,6 +7,7 @@ import com.project.digitalwallet.common.util.WalletTransactionEvent;
 import com.project.digitalwallet.dto.KycStatusResponse;
 import com.project.digitalwallet.dto.ReviewKycRequest;
 import com.project.digitalwallet.dto.SubmitKycRequest;
+import com.project.digitalwallet.entity.Address;
 import com.project.digitalwallet.entity.KycDetails;
 import com.project.digitalwallet.entity.User;
 import com.project.digitalwallet.mapper.KycMapper;
@@ -67,7 +68,15 @@ public class KycServiceImpl implements KycService {
       //  kycDetails.setUser(user);
         kycDetails.setAdminRemarks(null);
 
+        user.setAddress(Address.builder()
+                        .city(request.getCity())
+                        .street(request.getStreet())
+                        .state(request.getState())
+                        .zipCode(request.getZipCode())
+                        .build());
+
         KycDetails saved = kycDetailsRepository.save(kycDetails);
+        userRepository.save(user);
 
         auditLogService.logEvent(
                 user.getId(),

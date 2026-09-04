@@ -11,6 +11,8 @@ import java.time.LocalDate;
 
 @Data
 public class SubmitKycRequest {
+    @NotNull(message = "Name is required")
+    private String name;
 
     @NotNull(message = "Document type is required")
     private DocumentType documentType;
@@ -25,4 +27,15 @@ public class SubmitKycRequest {
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate dateOfBirth;
+
+    @NotNull(message = "Street is required")
+    private String street;
+
+    @NotNull(message = "City is required")
+    private String city;
+
+    @NotNull(message = "State is required")
+    private String state;
+
+    private String zipCode;
 }

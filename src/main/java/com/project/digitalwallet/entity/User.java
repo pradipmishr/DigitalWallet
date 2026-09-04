@@ -27,7 +27,8 @@ public class User extends BaseEntity {
 
     private LocalDate dateOfBirth;
 
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
+    @OneToOne
+    @JoinColumn(name = "wallet_id")
     private Wallet wallet;
 
     @Enumerated(EnumType.STRING)
@@ -46,4 +47,8 @@ public class User extends BaseEntity {
     )
     @JoinColumn(name = "address_id")
     private Address address;
+
+    @OneToOne
+    @JoinColumn(name = "kyc_id")
+    private KycDetails kyc;
 }
