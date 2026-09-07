@@ -1,28 +1,23 @@
 package com.project.digitalwallet.service.impl;
 
-import com.project.digitalwallet.common.enums.KycStatus;
 import com.project.digitalwallet.common.enums.NotificationType;
 import com.project.digitalwallet.common.util.TransactionLimitValidator;
 import com.project.digitalwallet.common.util.WalletTransactionEvent;
 import com.project.digitalwallet.dto.*;
-import com.project.digitalwallet.entity.KycDetails;
 import com.project.digitalwallet.entity.Transaction;
 import com.project.digitalwallet.entity.User;
 import com.project.digitalwallet.entity.Wallet;
 import com.project.digitalwallet.common.enums.WalletStatus;
 import com.project.digitalwallet.mapper.TransactionMapper;
 import com.project.digitalwallet.mapper.WalletMapper;
-import com.project.digitalwallet.repository.KycDetailsRepository;
 import com.project.digitalwallet.repository.TransactionRepository;
 import com.project.digitalwallet.repository.UserRepository;
 import com.project.digitalwallet.repository.WalletRepository;
-import com.project.digitalwallet.service.AdminService;
 import com.project.digitalwallet.service.AuditLogService;
 import com.project.digitalwallet.service.WalletService;
 import com.project.digitalwallet.common.util.WalletNumberGenerator;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,11 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.YearMonth;
-import java.util.Optional;
+
 
 @Slf4j
 @Service

@@ -91,7 +91,6 @@ public class KycServiceImpl implements KycService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public KycStatusResponse getKycStatusForUser(Long authenticatedUserId) {
         return kycDetailsRepository.findByUserId(authenticatedUserId)
                 .map(kyc -> KycMapper.mapToKycStatusResponse(kyc, supabaseStorageService))
@@ -101,7 +100,6 @@ public class KycServiceImpl implements KycService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public KycStatusResponse getKycStatus(Long userId) {
         // Delegates directly to getKycStatusForUser
         return getKycStatusForUser(userId);
@@ -187,7 +185,6 @@ public class KycServiceImpl implements KycService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public KycStatusResponse getKycById(Long id) {
         KycDetails kyc = kycDetailsRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("KYC record not found with id: " + id));
@@ -196,7 +193,6 @@ public class KycServiceImpl implements KycService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public KycStatusResponse getKycByUserId(Long targetUserId) {
 
         KycDetails kycDetails = kycDetailsRepository.findByUserId(targetUserId)

@@ -15,7 +15,6 @@ public interface AdminService {
     WalletDto unfreezeWalletByPhoneNumber(String phoneNumber);
     Page<AdminUserResponseDto> getAllUsers(int page, int size);
 
-    @Transactional(readOnly = true)
     UserByIdDto getUserById(Long id);
 
     Page<AdminUserResponseDto> searchUsers(String query, int page, int size);

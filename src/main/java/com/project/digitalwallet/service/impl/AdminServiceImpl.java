@@ -53,7 +53,6 @@ public class AdminServiceImpl implements AdminService {
         return this.globalDailyLimit;
     }
 
-    @Transactional(readOnly = true)
     @Override
     public AdminDashboardStatsDto getDashboardStats() {
         long totalUsers = userRepository.count();
@@ -73,14 +72,12 @@ public class AdminServiceImpl implements AdminService {
                 .build();
     }
 
-    @Transactional(readOnly = true)
     @Override
     public Page<AuditLogDto> getAllAuditLogs(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         return auditLogRepository.findAll(pageable).map(this::mapToAuditLogDto);
     }
 
-    @Transactional(readOnly = true)
     @Override
     public Page<AuditLogDto> getAuditLogsByAction(String action, int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
@@ -159,7 +156,6 @@ public class AdminServiceImpl implements AdminService {
                 .createdAt(log.getCreatedAt())
                 .build();
     }
-    @Transactional(readOnly = true)
     @Override
     public Page<AdminUserResponseDto> getAllUsers(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
