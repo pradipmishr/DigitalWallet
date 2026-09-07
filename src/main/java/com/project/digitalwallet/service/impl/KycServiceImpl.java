@@ -41,7 +41,7 @@ public class KycServiceImpl implements KycService {
     @Transactional
     public KycStatusResponse submitKyc(Long userId, SubmitKycRequest request, MultipartFile frontImage) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found with ID: " + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + userId));
 
         if (frontImage == null || frontImage.isEmpty()) {
             throw new IllegalArgumentException("Front image of document is required.");

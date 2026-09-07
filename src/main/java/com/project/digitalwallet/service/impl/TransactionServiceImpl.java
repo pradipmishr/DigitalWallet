@@ -159,6 +159,7 @@ public class TransactionServiceImpl implements TransactionService {
             </html>
             """, user.getFirstName(), user.getLastName(), request.getStartDate(), request.getEndDate(), tableRows);
     }
+
     @Override
     public Page<TransactionDto> searchTransactionsForAdmin(AdminTransactionSearchRequest request) {
         Specification<Transaction> spec = (root, query, criteriaBuilder) -> {
@@ -201,12 +202,12 @@ public class TransactionServiceImpl implements TransactionService {
         Pageable pageable = PageRequest.of(request.getPage(), request.getSize(), Sort.by("createdAt").descending());
         return transactionRepository.findAll(spec, pageable).map(TransactionMapper::toTransactionDto);
     }
+
     @Override
     @Transactional
     public TransactionDto reverseTransaction(UserDto adminUserDto, AdminReverseTransactionRequest request) {
         Transaction originalTx = transactionRepository.findByReferenceNumber(request.getReferenceNumber())
                 .orElseThrow(() -> new IllegalArgumentException("Original transaction not found with reference number: " + request.getReferenceNumber()));
-
 
         // 2. Ensure transaction is in SUCCESS state and hasn't been REVERSED yet
         if (originalTx.getStatus() == TransactionStatus.REVERSED) {
