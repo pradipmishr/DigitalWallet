@@ -8,10 +8,7 @@ import com.project.digitalwallet.mapper.UserMapper;
 import com.project.digitalwallet.repository.UserRepository;
 import com.project.digitalwallet.security.JwtUtil;
 import com.project.digitalwallet.security.UserPrincipal;
-import com.project.digitalwallet.service.AuditLogService;
-import com.project.digitalwallet.service.AuthService;
-import com.project.digitalwallet.service.OtpService;
-import com.project.digitalwallet.service.TokenBlacklistService;
+import com.project.digitalwallet.service.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +22,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -57,6 +55,9 @@ public class AuthServiceImpl implements AuthService {
 
     private final TokenBlacklistService tokenBlacklistService;
 
+    private final ObjectMapper objectMapper;
+    private final WalletService walletService;
+
 
     /*
      * =========================================================
@@ -81,6 +82,307 @@ public class AuthServiceImpl implements AuthService {
     private static final Duration RESET_TOKEN_EXPIRY =
             Duration.ofMinutes(10);
 
+    /*
+     * Redis key used for pending registration.
+     */
+    private static final String PENDING_REG_PREFIX =
+            "pending_reg:";
+
+
+    /*
+     * Pending registration expires after 10 minutes.
+     */
+    private static final Duration PENDING_REG_EXPIRY =
+            Duration.ofMinutes(10);
+
+
+    /*
+     * Maximum failed OTP attempts.
+     */
+    private static final int MAX_OTP_ATTEMPTS = 3;
+
+
+    // =========================================================
+    // REGISTRATION
+    // =========================================================
+
+
+    @Override
+    public void initiateRegistration(RegisterRequest request) {
+
+        String email = request.getEmail()
+                .trim()
+                .toLowerCase();
+
+        // 1. Check existing email
+        if (userRepository.existsByEmail(email)) {
+            throw new IllegalArgumentException(
+                    "Email is already registered."
+            );
+        }
+
+        // 2. Check existing phone
+        if (userRepository.existsByPhoneNumber(
+                request.getPhoneNumber()
+        )) {
+            throw new IllegalArgumentException(
+                    "Phone number is already registered."
+            );
+        }
+
+        // 3. Hash password
+        String hashedPassword =
+                passwordEncoder.encode(
+                        request.getPassword()
+                );
+
+        // 4. Create pending registration data
+        RegisterPendingDataDto pendingData =
+                RegisterPendingDataDto.builder()
+                        .firstName(request.getFirstName())
+                        .lastName(request.getLastName())
+                        .email(email)
+                        .dateOfBirth(request.getDateOfBirth())
+                        .phoneNumber(request.getPhoneNumber())
+                        .password(hashedPassword)
+                        .attempts(0)
+                        .build();
+
+        try {
+
+            // 5. Convert to JSON
+            String pendingJson =
+                    objectMapper.writeValueAsString(
+                            pendingData
+                    );
+
+            // 6. Store pending registration
+            redisTemplate.opsForValue().set(
+                    PENDING_REG_PREFIX + email,
+                    pendingJson,
+                    Duration.ofMinutes(10)
+            );
+
+            // 7. Send registration OTP
+            otpService.sendRegistrationOtp(email);
+
+        } catch (Exception e) {
+
+            redisTemplate.delete(
+                    PENDING_REG_PREFIX + email
+            );
+
+            throw new RuntimeException(
+                    "Unable to initiate registration.",
+                    e
+            );
+        }
+    }
+
+
+
+    @Transactional
+    @Override
+    public UserDto completeRegistration(
+            RegisterVerifyRequest verifyRequest
+    ) {
+
+        String email = verifyRequest.getEmail()
+                .trim()
+                .toLowerCase();
+
+        String pendingKey =
+                PENDING_REG_PREFIX + email;
+
+        /*
+         * 1. Get pending registration from Redis.
+         */
+        String pendingJson =
+                redisTemplate.opsForValue().get(
+                        pendingKey
+                );
+
+        if (pendingJson == null) {
+
+            throw new IllegalArgumentException(
+                    "Registration session has expired. Please register again."
+            );
+        }
+
+        try {
+
+            /*
+             * 2. Convert JSON back to DTO.
+             */
+            RegisterPendingDataDto pendingData =
+                    objectMapper.readValue(
+                            pendingJson,
+                            RegisterPendingDataDto.class
+                    );
+
+
+            /*
+             * 3. Check attempts.
+             *
+             * The attempts are stored inside
+             * RegisterPendingDataDto.
+             */
+            if (pendingData.getAttempts()
+                    >= MAX_OTP_ATTEMPTS) {
+
+                redisTemplate.delete(pendingKey);
+
+                throw new IllegalStateException(
+                        "Too many failed attempts. Please register again."
+                );
+            }
+
+
+            /*
+             * 4. Verify OTP.
+             *
+             * This will:
+             * - check OTP exists
+             * - check expiration
+             * - check OTP
+             * - enforce 3 attempts
+             * - delete OTP after successful verification
+             */
+            otpService.verifyRegistrationOtp(
+                    email,
+                    verifyRequest.getOtp()
+            );
+
+            /*
+             * 5. Double-check email before saving.
+             */
+            if (userRepository.existsByEmail(email)) {
+
+                redisTemplate.delete(pendingKey);
+
+                throw new IllegalArgumentException(
+                        "Email is already registered."
+                );
+            }
+
+
+            /*
+             * 6. Double-check phone before saving.
+             */
+            if (userRepository.existsByPhoneNumber(
+                    pendingData.getPhoneNumber()
+            )) {
+
+                redisTemplate.delete(pendingKey);
+
+                throw new IllegalArgumentException(
+                        "Phone number is already registered."
+                );
+            }
+
+
+            /*
+             * 7. Create User entity.
+             */
+            User user = new User();
+
+            user.setFirstName(
+                    pendingData.getFirstName()
+            );
+
+            user.setLastName(
+                    pendingData.getLastName()
+            );
+
+            user.setEmail(
+                    pendingData.getEmail()
+            );
+
+            user.setPhoneNumber(
+                    pendingData.getPhoneNumber()
+            );
+
+            user.setDateOfBirth(
+                    pendingData.getDateOfBirth()
+            );
+
+            /*
+             * Password is ALREADY HASHED.
+             *
+             * Do NOT encode it again.
+             */
+            user.setPassword(
+                    pendingData.getPassword()
+            );
+
+
+            /*
+             * 8. Save user to database.
+             */
+            User savedUser =
+                    userRepository.save(user);
+
+
+            /*
+             * 9. Delete pending registration.
+             */
+            redisTemplate.delete(
+                    pendingKey
+            );
+
+
+            /*
+             * 10. Convert User to DTO.
+             */
+            UserDto userDto =
+                    UserMapper.toUserDto(savedUser);
+
+
+            /*
+             * 11. Create associated wallet.
+             */
+            WalletDto createdWalletDto =
+                    walletService.createWallet(
+                            userDto
+                    );
+
+            userDto.setWallet(
+                    createdWalletDto
+            );
+
+
+            /*
+             * 12. Audit successful registration.
+             */
+            auditLogService.logEvent(
+                    savedUser.getId(),
+                    "USER_REGISTRATION_SUCCESS",
+                    String.format(
+                            "User registered successfully with email: %s",
+                            email
+                    ),
+                    httpServletRequest
+            );
+
+
+            return userDto;
+
+        } catch (IllegalArgumentException e) {
+
+            throw e;
+
+        } catch (IllegalStateException e) {
+
+            throw e;
+
+        } catch (Exception e) {
+
+            throw new RuntimeException(
+                    "Unable to complete registration.",
+                    e
+            );
+        }
+    }
 
     // =========================================================
     // LOGIN

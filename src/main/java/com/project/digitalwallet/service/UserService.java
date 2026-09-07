@@ -8,10 +8,6 @@ import java.util.List;
 
 public interface UserService {
 
-    void initiateRegistration(RegisterRequest request);
-
-    UserDto completeRegistration(RegisterVerifyRequest request);
-
     List<UserDto> getAllUsers();
     void setTransactionPin(String phoneNumber, String pin);
 

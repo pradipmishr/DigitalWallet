@@ -17,13 +17,12 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/auth")
 public class AuthController {
 
-    private final UserService userService;
     private final AuthService authService;
     private final OtpService otpService;
 
     @PostMapping("/register")
     public ResponseWrapper<String> initiateRegistration(@Valid @RequestBody RegisterRequest registerRequest) {
-        userService.initiateRegistration(registerRequest);
+        authService.initiateRegistration(registerRequest);
         return new ResponseWrapper<>(
                 "OTP sent to " + registerRequest.getEmail(),
                 "OTP sent successfully",
@@ -43,7 +42,7 @@ public class AuthController {
     }
     @PostMapping("/register/verify")
     public ResponseWrapper<UserDto> completeRegistration(@Valid @RequestBody RegisterVerifyRequest verifyRequest) {
-        UserDto response = userService.completeRegistration(verifyRequest);
+        UserDto response = authService.completeRegistration(verifyRequest);
         return new ResponseWrapper<>(
                 response,
                 "User created successfully and wallet initialized",

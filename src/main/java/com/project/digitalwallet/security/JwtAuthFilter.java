@@ -53,7 +53,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 return;
             }
 
-
             String username = jwtUtil.extractUsername(jwt);
 
             if (username != null &&
