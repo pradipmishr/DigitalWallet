@@ -30,8 +30,6 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
 
-    private final WalletService walletService;
-
     private final OtpService otpService;
 
     private final PasswordEncoder passwordEncoder;
