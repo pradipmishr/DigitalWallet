@@ -147,9 +147,9 @@ public class AdminServiceImpl implements AdminService {
             System.out.println("Error resolving IP");
         }
 
+        assert local != null;
         System.out.println(local.getHostAddress());
         return AuditLogDto.builder()
-
                 .id(log.getId())
                 .userId(log.getUser() != null ? log.getUser().getId() : null)
                 .userPhoneNumber(log.getUser() != null ? log.getUser().getPhoneNumber() : "N/A")
