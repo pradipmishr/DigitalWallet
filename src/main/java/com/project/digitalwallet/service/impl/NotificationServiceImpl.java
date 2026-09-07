@@ -2,7 +2,6 @@ package com.project.digitalwallet.service.impl;
 
 
 import com.project.digitalwallet.dto.NotificationDto;
-import com.project.digitalwallet.entity.Notification;
 import com.project.digitalwallet.entity.User;
 import com.project.digitalwallet.mapper.NotificationMapper;
 import com.project.digitalwallet.repository.NotificationRepository;
@@ -63,6 +62,4 @@ public class NotificationServiceImpl implements NotificationService {
         return userRepository.findByPhoneNumber(phoneNumber)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + phoneNumber));
     }
-
-
 }

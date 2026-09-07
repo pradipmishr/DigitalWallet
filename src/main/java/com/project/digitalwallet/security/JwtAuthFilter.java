@@ -1,6 +1,6 @@
 package com.project.digitalwallet.security;
 
-import com.project.digitalwallet.repository.BlacklistedTokenRepository;
+import com.project.digitalwallet.service.TokenBlacklistService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -24,7 +24,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
     private final UserDetailsService userDetailsService;
-    private final BlacklistedTokenRepository blacklistedTokenRepository;
+    private final TokenBlacklistService tokenBlacklistService;
+
 
     @Override
     protected void doFilterInternal(
@@ -44,11 +45,14 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             String jwt = authHeader.substring(7);
 
             // Check if token has been blacklisted
-            if (blacklistedTokenRepository.existsByToken(jwt)) {
-                log.warn("Attempt to use blacklisted JWT");
+            String jti = jwtUtil.extractJti(jwt);
+
+            if (tokenBlacklistService.isBlacklisted(jti)) {
+                log.warn("Attempt to use blacklisted JWT: {}", jti);
                 filterChain.doFilter(request, response);
                 return;
             }
+
 
             String username = jwtUtil.extractUsername(jwt);
 

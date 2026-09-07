@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.UUID;
 
 @Slf4j
 @Component
@@ -42,6 +43,7 @@ public class JwtUtil {
         long expirationTimeMs = 3600000L; // 1 hour explicitly as long (or 86400000L for 24 hours)
 
         return Jwts.builder()
+                .id(UUID.randomUUID().toString())
                 .subject(userPrincipal.getUsername())
                 .claim("role", userPrincipal.getRole().name())
                 .issuedAt(new Date(now))
@@ -83,4 +85,12 @@ public class JwtUtil {
                 .getExpiration()
                 .before(new Date());
     }
+    public String extractJti(String token) {
+        return extractAllClaims(token).getId();
+    }
+
+    public Date extractExpiration(String token) {
+        return extractAllClaims(token).getExpiration();
+    }
+
 }

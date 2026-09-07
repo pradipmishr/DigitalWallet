@@ -3,16 +3,15 @@ package com.project.digitalwallet.service.impl;
 import com.project.digitalwallet.common.enums.NotificationType;
 import com.project.digitalwallet.common.util.WalletTransactionEvent;
 import com.project.digitalwallet.dto.*;
-import com.project.digitalwallet.entity.BlacklistedToken;
 import com.project.digitalwallet.entity.User;
 import com.project.digitalwallet.mapper.UserMapper;
-import com.project.digitalwallet.repository.BlacklistedTokenRepository;
 import com.project.digitalwallet.repository.UserRepository;
 import com.project.digitalwallet.security.JwtUtil;
 import com.project.digitalwallet.security.UserPrincipal;
 import com.project.digitalwallet.service.AuditLogService;
 import com.project.digitalwallet.service.AuthService;
 import com.project.digitalwallet.service.OtpService;
+import com.project.digitalwallet.service.TokenBlacklistService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +28,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.util.Date;
 import java.util.UUID;
 
 @Service
@@ -53,9 +53,9 @@ public class AuthServiceImpl implements AuthService {
 
     private final ApplicationEventPublisher eventPublisher;
 
-    private final BlacklistedTokenRepository blacklistedTokenRepository;
-
     private final StringRedisTemplate redisTemplate;
+
+    private final TokenBlacklistService tokenBlacklistService;
 
 
     /*
@@ -449,13 +449,10 @@ public class AuthServiceImpl implements AuthService {
     // =========================================================
 
     @Override
-    public void logout(
-            HttpServletRequest request
-    ) {
+    public void logout(HttpServletRequest request) {
 
         String authHeader =
                 request.getHeader("Authorization");
-
 
         if (authHeader == null ||
                 !authHeader.startsWith("Bearer ")) {
@@ -465,25 +462,23 @@ public class AuthServiceImpl implements AuthService {
             );
         }
 
+        String jwt = authHeader.substring(7);
 
-        String jwt =
-                authHeader.substring(7);
+        String jti = jwtUtil.extractJti(jwt);
 
+        Date expiration = jwtUtil.extractExpiration(jwt);
 
-        /*
-         * Avoid duplicate blacklisted tokens.
-         */
-        if (!blacklistedTokenRepository
-                .existsByToken(jwt)) {
+        long remainingMillis =
+                expiration.getTime()
+                        - System.currentTimeMillis();
 
-            BlacklistedToken blacklistedToken =
-                    new BlacklistedToken();
+        if (remainingMillis > 0) {
 
-            blacklistedToken.setToken(jwt);
-
-            blacklistedTokenRepository.save(
-                    blacklistedToken
+            tokenBlacklistService.blacklist(
+                    jti,
+                    Duration.ofMillis(remainingMillis)
             );
         }
     }
+
 }

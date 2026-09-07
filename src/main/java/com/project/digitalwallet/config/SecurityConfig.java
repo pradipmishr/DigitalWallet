@@ -44,7 +44,15 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**").permitAll()
+                        .requestMatchers("/auth/register",
+                                    "/auth/resend-registration-otp",
+                                    "/auth/register/verify",
+                                    "/auth/login",
+                                    "/auth/forgot-password",
+                                    "/auth/verify-reset-otp",
+                                    "/auth/reset-password",
+                                    "/auth/resend-forgot-password-otp").permitAll()
+                        .requestMatchers("/auth/logout").authenticated()
                         .requestMatchers("/ws-notifications/**").permitAll()
                         .requestMatchers("/admin/**").hasRole("ADMIN")
                         .requestMatchers("/user/**").hasRole("USER")
